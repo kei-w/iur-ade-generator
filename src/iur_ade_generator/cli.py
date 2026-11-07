@@ -12,41 +12,33 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from . import (
-    compare,
-    config,
-    gen_citydb,
-    gen_citygml4j,
-    gen_fixture,
-    gen_mapping,
-    patch_binding,
-    patch_mapping,
-    update_changes_features,
-    update_changes_urf,
-)
+from . import binding, compare, config, fixture, gen_citydb, update_changes_features, update_changes_urf
+from .citygml4j import generator as citygml4j_generator
 from .errors import GeneratorError
+from .mapping import generate as mapping_generate
+from .mapping import patch as mapping_patch
 
 log = logging.getLogger(__name__)
 
 # command -> (function taking the arguments, usage, description)
 GENERATORS: dict[str, tuple[Callable[[list[str]], int | None], str, str]] = {
     "patch-binding": (
-        patch_binding.main,
+        binding.main,
         "<citygml4j repo>",
         "rename the JAXB properties of the feature types, the urf package and the lod-N elements in binding.xjb",
     ),
     "patch-mapping": (
-        patch_mapping.main,
+        mapping_patch.main,
         "<citydb repo> <citygml4j repo> <version> [modules: uro,urf]",
         "apply the rules 1-7 to the schema mapping and DDL the ADE Manager generated (idempotent)",
     ),
     "gen-mapping": (
-        gen_mapping.main,
+        mapping_generate.main,
         "<citydb repo> <citygml4j repo> <version> <module prefix> [modules the module depends on: uro]",
         "generate the schema mapping and DDL of a module the ADE Manager cannot transform (urf)",
     ),
     "gen-citygml4j": (
-        gen_citygml4j.main,
+        citygml4j_generator.main,
         "<citygml4j repo> <citydb repo> <version> <preset: all|phaseA|phaseB|phaseC> [modules: uro,urf]",
         "generate the model classes, (un)marshallers, walkers and modules of iur-ade-citygml4j",
     ),
@@ -56,7 +48,7 @@ GENERATORS: dict[str, tuple[Callable[[list[str]], int | None], str, str]] = {
         "generate the importers, exporters, join table importers and registrations of iur-ade-citydb",
     ),
     "fixture": (
-        gen_fixture.main,
+        fixture.main,
         "<citygml4j repo> <citydb repo> <version> <preset> <out.gml> [modules: uro,urf]",
         "write a CityGML file that uses every attribute of the modules",
     ),

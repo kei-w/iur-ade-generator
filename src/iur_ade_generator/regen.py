@@ -20,9 +20,12 @@ import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
-from . import compare, database, gen_citydb, gen_citygml4j, gen_fixture, gen_mapping, patch_binding, patch_mapping
+from . import binding, compare, database, fixture, gen_citydb
+from .citygml4j import generator as citygml4j_generator
 from .config import REPO_ROOT, Config, Edition
 from .errors import GeneratorError
+from .mapping import generate as mapping_generate
+from .mapping import patch as mapping_patch
 from .tools import ade_xjc, git, gradle, impexp
 
 log = logging.getLogger(__name__)
@@ -84,7 +87,7 @@ def update_urf_schema(edition: Edition, citygml4j: Path) -> None:
 
 def generate_jaxb(config: Config, edition: Edition, citygml4j: Path, out: Path) -> None:
     """Step 1: the JAXB classes of the four packages with ade-xjc, copied into ``src-gen`` with LF line endings."""
-    patch_binding.main([str(citygml4j)])
+    binding.main([str(citygml4j)])
     work = out / "ade-xjc" / edition.version
     shutil.rmtree(work, ignore_errors=True)
     resources = citygml4j / "resources" / "ade-xjc"
@@ -153,10 +156,10 @@ def regenerate_code(config: Config, edition: Edition, citygml4j: Path, citydb: P
     generation are idempotent and start from the committed mapping)."""
     version = edition.version
     git(citydb, "checkout", "-q", "--", "resources/database")
-    patch_mapping.main([str(citydb), str(citygml4j), version, "uro"])
-    gen_citygml4j.main([str(citygml4j), str(citydb), version, "all", MODULES])
+    mapping_patch.main([str(citydb), str(citygml4j), version, "uro"])
+    citygml4j_generator.main([str(citygml4j), str(citydb), version, "all", MODULES])
     gradle(citygml4j, "publishToMavenLocal", log_file=out / f"citygml4j{edition.nn}_build.log")
-    gen_mapping.main([str(citydb), str(citygml4j), version, "urf", "uro"])
+    mapping_generate.main([str(citydb), str(citygml4j), version, "urf", "uro"])
     gen_citydb.main([str(citydb), str(citygml4j), version, "all", MODULES])
     gradle(citydb, "installDist", log_file=out / f"citydb{edition.nn}_build.log")
     jar = citydb / "build" / "install" / "iur-ade" / "lib" / f"iur-ade-citydb-{edition.citydb_version}.jar"
@@ -184,9 +187,9 @@ def extension_dir(config: Config, edition: Edition) -> Path:
 def write_fixture(edition: Edition, citygml4j: Path, citydb: Path) -> Path:
     """Step 3: the fixture with every attribute of the modules."""
     FIXTURES.mkdir(exist_ok=True)
-    fixture = FIXTURES / edition.fixture_name
-    gen_fixture.main([str(citygml4j), str(citydb), edition.version, "all", str(fixture), MODULES])
-    return fixture
+    path = FIXTURES / edition.fixture_name
+    fixture.main([str(citygml4j), str(citydb), edition.version, "all", str(path), MODULES])
+    return path
 
 
 def compare_files(original: Path, roundtrip: Path, options: Sequence[str], report: Path | None) -> tuple[int, str]:

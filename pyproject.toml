@@ -46,11 +46,19 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# the generators format their Java, SQL and XML templates with %: no f-strings forced
+ignore = ["UP031"]
 # The generator modules were copied as they ran in the PoC workspace. Their line length, unused variables and the
 # rules below are brought into line module by module during the split of the generators (task 13, section 4).
 [tool.ruff.lint.per-file-ignores]
-"src/iur_ade_generator/gen_*.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
-"src/iur_ade_generator/patch_*.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
+# the templates of the generated Java, SQL and XML are longer than the code lines
+"src/iur_ade_generator/citygml4j/*.py" = ["E501"]
+"src/iur_ade_generator/citydb/*.py" = ["E501"]
+"src/iur_ade_generator/mapping/*.py" = ["E501"]
+"src/iur_ade_generator/fixture.py" = ["E501"]
+"src/iur_ade_generator/binding.py" = ["E501"]
+"src/iur_ade_generator/gen_citydb.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
+"src/iur_ade_generator/gen_citygml4j.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
 "src/iur_ade_generator/update_changes_*.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
 "src/iur_ade_generator/urospec.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
 "src/iur_ade_generator/compare.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
@@ -65,10 +73,6 @@ files = ["src", "tests"]
 module = [
     "iur_ade_generator.gen_citydb",
     "iur_ade_generator.gen_citygml4j",
-    "iur_ade_generator.gen_fixture",
-    "iur_ade_generator.gen_mapping",
-    "iur_ade_generator.patch_binding",
-    "iur_ade_generator.patch_mapping",
     "iur_ade_generator.update_changes_features",
     "iur_ade_generator.update_changes_urf",
     "iur_ade_generator.urospec",

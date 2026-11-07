@@ -7,26 +7,29 @@
 * urf 3.x: the package of the urf section follows the schema version; the feature types with an id or location element
   (DisasterDamage, Zone, ...) get the same renames as above; and elements with a hyphen (lod-1MultiSurface), which
   collide with lod1MultiSurface in the JAXB property and factory names, are renamed lodMinus1MultiSurface (the model
-  accessors are named alike, see urospec.java_name).
+  accessors are named alike, see naming.java_name).
 
-Usage: patch_binding.py <citygml4j repo or folder with binding.xjb and schemas/>
+Usage: iur-ade patch-binding <citygml4j repo or folder with binding.xjb and schemas/>
 """
 
-import io
+from __future__ import annotations
+
+import logging
 import os
 import re
 import sys
 import xml.etree.ElementTree as ET
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from .urospec import FEATURE_FIELD_NAMES, java_name
+from .naming import FEATURE_FIELD_NAMES, java_name
+
+log = logging.getLogger(__name__)
 
 XS = "{http://www.w3.org/2001/XMLSchema}"
 RENAMES = [("AbstractConstructionType", "boundedBy"), ("PublicLandType", "id")]
-NL = chr(10)
+NL = "\n"
 
 
-def rename_block(type_name, element, indent="    "):
+def rename_block(type_name: str, element: str, indent: str = "    ") -> tuple[str, str]:
     node = "xs:complexType[@name='%s']//xs:element[@name='%s']" % (type_name, element)
     return node, NL.join(
         [
@@ -37,7 +40,7 @@ def rename_block(type_name, element, indent="    "):
     )
 
 
-def derived_type_renames(xsd_path):
+def derived_type_renames(xsd_path: str) -> list[tuple[str, str]]:
     """(type, element) pairs of the derived complex types whose own elements clash with inherited GML properties."""
     pairs = []
     for ct in ET.parse(xsd_path).getroot().findall(XS + "complexType"):
@@ -45,30 +48,36 @@ def derived_type_renames(xsd_path):
             continue
         for e in ct.iter(XS + "element"):
             if e.get("name") in FEATURE_FIELD_NAMES:
-                pairs.append((ct.get("name"), e.get("name")))
+                pairs.append((ct.get("name", ""), e.get("name", "")))
     return pairs
 
 
-def main(argv: list[str] | None = None) -> None:
-    argv = sys.argv[1:] if argv is None else list(argv)
-    folder = argv[0]
+def patch_binding(folder: str) -> list[str]:
+    """Adds the renames to ``binding.xjb`` of the folder (or of ``resources/ade-xjc`` of a citygml4j repository);
+    returns the descriptions of the additions."""
     folder = (
         folder if os.path.isfile(os.path.join(folder, "binding.xjb")) else os.path.join(folder, "resources", "ade-xjc")
     )
-    xsd = io.open(os.path.join(folder, "schemas", "urbanObject.xsd"), encoding="utf-8").read()
+    with open(os.path.join(folder, "schemas", "urbanObject.xsd"), encoding="utf-8") as f:
+        xsd = f.read()
     p = os.path.join(folder, "binding.xjb")
-    s = io.open(p, encoding="utf-8").read()
+    with open(p, encoding="utf-8") as f:
+        s = f.read()
     added = []
     for type_name, element in RENAMES:
         node, block = rename_block(type_name, element)
         if 'name="%s"' % type_name not in xsd or node in s:
             continue
         anchor = "    <jaxb:bindings node=\"xs:element[@name='buildingDetailAttribute']\">"
-        assert anchor in s, "anchor not found in " + p
+        if anchor not in s:
+            raise ValueError("anchor not found in " + p)
         s = s.replace(anchor, block + NL + anchor, 1)
         added.append("%s/%s" % (type_name, element))
     urf_path = os.path.join(folder, "schemas", "urbanFunction.xsd")
-    urf = io.open(urf_path, encoding="utf-8").read() if os.path.exists(urf_path) else ""
+    urf = ""
+    if os.path.exists(urf_path):
+        with open(urf_path, encoding="utf-8") as f:
+            urf = f.read()
     m = re.search(r'targetNamespace="https://www.geospatial.jp/iur/urf/([0-9.]+)"', urf)
     if m:
         pkg = "jp.geospatial.iur._%s.urf" % m.group(1).replace(".", "_")
@@ -98,10 +107,12 @@ def main(argv: list[str] | None = None) -> None:
                 "urf %s package, %d feature renames and hyphenated elements %s" % (m.group(1), len(renames), names)
             )
     if added:
-        io.open(p, "w", encoding="utf-8", newline=NL).write(s)
-    print("binding renames added:", added or "none (already applied or not needed)")
-    return bool(added)
+        with open(p, "w", encoding="utf-8", newline=NL) as f:
+            f.write(s)
+    return added
 
 
-if __name__ == "__main__":
-    main()
+def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    added = patch_binding(argv[0])
+    log.info("binding renames added: %s", added or "none (already applied or not needed)")
