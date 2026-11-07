@@ -48,8 +48,6 @@ src = ["src", "tests"]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 # the generators format their Java, SQL and XML templates with %: no f-strings forced
 ignore = ["UP031"]
-# The generator modules were copied as they ran in the PoC workspace. Their line length, unused variables and the
-# rules below are brought into line module by module during the split of the generators (task 13, section 4).
 [tool.ruff.lint.per-file-ignores]
 # the templates of the generated Java, SQL and XML are longer than the code lines
 "src/iur_ade_generator/citygml4j/*.py" = ["E501"]
@@ -57,27 +55,12 @@ ignore = ["UP031"]
 "src/iur_ade_generator/mapping/*.py" = ["E501"]
 "src/iur_ade_generator/fixture.py" = ["E501"]
 "src/iur_ade_generator/binding.py" = ["E501"]
-"src/iur_ade_generator/update_changes_*.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
-"src/iur_ade_generator/compare.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
+"src/iur_ade_generator/changes.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.14"
 strict = true
 files = ["src", "tests"]
-
-# Untyped generator modules (same list as above): checked once they are split into typed modules.
-[[tool.mypy.overrides]]
-module = [
-    "iur_ade_generator.update_changes_features",
-    "iur_ade_generator.update_changes_urf",
-    "iur_ade_generator.compare",
-]
-ignore_errors = true
-
-# The tests call the untyped generator modules.
-[[tool.mypy.overrides]]
-module = ["tests.*"]
-disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

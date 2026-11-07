@@ -195,7 +195,6 @@ def write_fixture(edition: Edition, citygml4j: Path, citydb: Path) -> Path:
 
 def compare_files(original: Path, roundtrip: Path, options: Sequence[str], report: Path | None) -> tuple[int, str]:
     """Runs the comparison and returns its exit code and summary line; the full output goes to ``report``."""
-    compare.reset()
     buffer = io.StringIO()
     with contextlib.redirect_stdout(buffer):
         code = compare.main([str(original), str(roundtrip), *options])

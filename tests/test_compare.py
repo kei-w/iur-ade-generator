@@ -53,17 +53,6 @@ def write(tmp_path: Path, name: str, *members: str) -> str:
     return str(path)
 
 
-@pytest.fixture(autouse=True)
-def fresh_options(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The command line flags are kept in module globals; every test starts from the defaults."""
-    monkeypatch.setattr(compare, "IGNORE_ELEMENTS", set())
-    monkeypatch.setattr(compare, "IGNORE_ATTRIBUTES", set())
-    monkeypatch.setattr(compare, "STRIP_IDS", False)
-    monkeypatch.setattr(compare, "UNORDERED", set())
-    monkeypatch.setattr(compare, "UNORDERED_GENERICS", False)
-    monkeypatch.setattr(compare, "SUBSET", False)
-
-
 def test_identical_files_compare_equal(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     a = write(tmp_path, "a.gml", ORIGINAL)
     b = write(tmp_path, "b.gml", ORIGINAL)

@@ -12,7 +12,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from . import binding, compare, config, fixture, update_changes_features, update_changes_urf
+from . import binding, changes, compare, config, fixture
 from .citydb import generator as citydb_generator
 from .citygml4j import generator as citygml4j_generator
 from .errors import GeneratorError
@@ -59,12 +59,12 @@ GENERATORS: dict[str, tuple[Callable[[list[str]], int | None], str, str]] = {
         "compare the city objects of two CityGML files (exit code 1 on differences)",
     ),
     "changes-features": (
-        update_changes_features.main,
+        changes.features_main,
         "<citygml4j repo> <citydb repo> <citygml4j version> <citydb version> <version>",
         "add the 'ADE feature types' section to both CHANGES.md files (idempotent)",
     ),
     "changes-urf": (
-        update_changes_urf.main,
+        changes.urf_main,
         "<citygml4j repo> <citydb repo> <citygml4j version> <citydb version> <version> <feature types> <data types>",
         "add the 'Urban Function module' section to both CHANGES.md files (idempotent)",
     ),

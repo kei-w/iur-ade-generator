@@ -22,9 +22,13 @@ Numbers in text (including posList) are compared as decimals so "4.0" == "4".
 Whitespace-only text is ignored. Exit code 1 on any difference.
 """
 
+from __future__ import annotations
+
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
 GML = "http://www.opengis.net/gml"
@@ -37,44 +41,61 @@ STD_NS_PREFIXES = (
     "http://www.w3.org/2001/XMLSchema-instance",
     "urn:oasis:names:tc:ciq:xsdschema:xAL:2.0",
 )
-IGNORE_ELEMENTS = set()
-IGNORE_ATTRIBUTES = set()
-STRIP_IDS = False
-UNORDERED = set()
-UNORDERED_GENERICS = False
-SUBSET = False
+
+type Canon = tuple[str, tuple[tuple[str, str], ...], str, tuple[Canon, ...]]
+"""The canonical form of an element: (tag, sorted attributes, normalised text, children)."""
 
 
-def reset() -> None:
-    """Restores the defaults of the command line options (module globals set by main)."""
-    global STRIP_IDS, UNORDERED_GENERICS, SUBSET
-    IGNORE_ELEMENTS.clear()
-    IGNORE_ATTRIBUTES.clear()
-    UNORDERED.clear()
-    STRIP_IDS = UNORDERED_GENERICS = SUBSET = False
+@dataclass
+class Options:
+    """The command line options."""
+
+    ignore_elements: set[str] = field(default_factory=set)
+    ignore_attributes: set[str] = field(default_factory=set)
+    strip_ids: bool = False
+    unordered: set[str] = field(default_factory=set)
+    """Elements whose children are compared as multisets."""
+    unordered_generics: bool = False
+    subset: bool = False
+
+    @classmethod
+    def parse(cls, argv: Sequence[str]) -> Options:
+        o = cls()
+        if "--ignore-creation-date" in argv:
+            o.ignore_elements.add("creationDate")
+        if "--db" in argv:
+            o.ignore_elements.update({"creationDate", "boundedBy"})
+            o.ignore_attributes.update({"srsName", "srsDimension"})
+            o.strip_ids = True
+            # nested features (rooms, installations, ...) are exported in database order
+            o.unordered.update({"CompositeSurface", "MultiSurface", "Building", "UndergroundBuilding"})
+            o.unordered_generics = True
+        if "--subset" in argv:
+            o.subset = True
+        return o
 
 
-def ns_of(tag):
+def ns_of(tag: str) -> str:
     return tag[1:].split("}")[0] if tag.startswith("{") else ""
 
 
-def local(tag):
+def local(tag: str) -> str:
     return tag.split("}")[-1]
 
 
-def is_ade(tag):
+def is_ade(tag: str) -> bool:
     ns = ns_of(tag)
-    return ns and not any(ns.startswith(p) for p in STD_NS_PREFIXES)
+    return bool(ns) and not any(ns.startswith(p) for p in STD_NS_PREFIXES)
 
 
-def norm_token(t):
+def norm_token(t: str) -> str:
     try:
         return str(Decimal(t).normalize())
     except InvalidOperation:
         return t
 
 
-def norm_text(t):
+def norm_text(t: str | None) -> str:
     if t is None:
         return ""
     t = t.strip()
@@ -83,34 +104,31 @@ def norm_text(t):
     return " ".join(norm_token(x) for x in t.split())
 
 
-def canon(el, strict):
+def canon(el: ET.Element, strict: bool, o: Options) -> Canon:
     # GML geometry embedded in ADE properties is written by the Importer/Exporter's
     # geometry machinery, so with --db it is normalised like standard content.
-    if strict and STRIP_IDS and ns_of(el.tag) == GML:
+    if strict and o.strip_ids and ns_of(el.tag) == GML:
         strict = False
-    attrs = el.attrib.items()
+    attrs = list(el.attrib.items())
     if not strict:
         attrs = [
-            (k, v) for k, v in attrs if local(k) not in IGNORE_ATTRIBUTES and not (STRIP_IDS and k == f"{{{GML}}}id")
+            (k, v)
+            for k, v in attrs
+            if local(k) not in o.ignore_attributes and not (o.strip_ids and k == f"{{{GML}}}id")
         ]
     # ADE feature types nest standard city object content (creationDate, gml:boundedBy), so the
     # ignored elements apply inside ADE content as well
     children = tuple(
-        canon(c, strict)
+        canon(c, strict, o)
         for c in el
-        if local(c.tag) not in IGNORE_ELEMENTS or (strict and ns_of(c.tag) not in (CORE, GML))
+        if local(c.tag) not in o.ignore_elements or (strict and ns_of(c.tag) not in (CORE, GML))
     )
-    if not strict and local(el.tag) in UNORDERED:
+    if not strict and local(el.tag) in o.unordered:
         children = tuple(sorted(children))
-    return (
-        el.tag,
-        tuple(sorted(attrs)),
-        norm_text(el.text),
-        children,
-    )
+    return el.tag, tuple(sorted(attrs)), norm_text(el.text), children
 
 
-def fmt(c, indent=0, max_lines=40):
+def fmt(c: Canon, indent: int = 0, max_lines: int = 40) -> str:
     tag, attrs, text, children = c
     s = "  " * indent + local(tag)
     if attrs:
@@ -123,7 +141,7 @@ def fmt(c, indent=0, max_lines=40):
     return "\n".join(lines[:max_lines])
 
 
-def diff_paths(a, b, path, out):
+def diff_paths(a: Canon, b: Canon, path: str, out: list[str]) -> None:
     if a[0] != b[0] or a[1] != b[1] or a[2] != b[2]:
         out.append(f"{path}: {fmt(a)[:200]!r}  !=  {fmt(b)[:200]!r}")
         return
@@ -136,60 +154,48 @@ def diff_paths(a, b, path, out):
         for c in (sb - sa).elements():
             out.append("  only in ROUNDTRIP:\n" + fmt(c, 2))
         return
-    for i, (x, y) in enumerate(zip(ca, cb)):
+    for i, (x, y) in enumerate(zip(ca, cb, strict=True)):
         if x != y:
             diff_paths(x, y, f"{path}/{local(a[0])}[{i}]", out)
 
 
-def city_objects(root):
+def city_objects(root: ET.Element) -> dict[str, ET.Element]:
     out = {}
     for member in root.iter(f"{{{CORE}}}cityObjectMember"):
         for obj in member:
-            out[obj.get(f"{{{GML}}}id")] = obj
+            out[obj.get(f"{{{GML}}}id", "")] = obj
     return out
 
 
-def split(obj):
+def split(obj: ET.Element, o: Options) -> tuple[tuple[Canon, ...], Canon]:
     """(ADE children canonical tuple, standard children canonical tuple)."""
-    ade = tuple(canon(c, True) for c in obj if is_ade(c.tag))
-    std_children = [c for c in obj if not is_ade(c.tag) and local(c.tag) not in IGNORE_ELEMENTS]
-    if UNORDERED_GENERICS:
-        generic = sorted(canon(c, False) for c in std_children if ns_of(c.tag) == GENERICS)
-        other = [canon(c, False) for c in std_children if ns_of(c.tag) != GENERICS]
+    ade = tuple(canon(c, True, o) for c in obj if is_ade(c.tag))
+    std_children = [c for c in obj if not is_ade(c.tag) and local(c.tag) not in o.ignore_elements]
+    if o.unordered_generics:
+        generic = sorted(canon(c, False, o) for c in std_children if ns_of(c.tag) == GENERICS)
+        other = [canon(c, False, o) for c in std_children if ns_of(c.tag) != GENERICS]
         std_canon = tuple(other) + tuple(generic)
     else:
-        std_canon = tuple(canon(c, False) for c in std_children)
-    std = (
+        std_canon = tuple(canon(c, False, o) for c in std_children)
+    std: Canon = (
         obj.tag,
-        tuple(sorted((k, v) for k, v in obj.attrib.items() if local(k) not in IGNORE_ATTRIBUTES)),
+        tuple(sorted((k, v) for k, v in obj.attrib.items() if local(k) not in o.ignore_attributes)),
         norm_text(obj.text),
         std_canon,
     )
     return ade, std
 
 
-def by_name(ade):
-    groups = defaultdict(list)
+def by_name(ade: tuple[Canon, ...]) -> dict[str, list[Canon]]:
+    groups: dict[str, list[Canon]] = defaultdict(list)
     for c in ade:
         groups[c[0]].append(c)
     return groups
 
 
-def main(argv: list[str]) -> int:
-    global STRIP_IDS, SUBSET, UNORDERED_GENERICS
+def main(argv: Sequence[str]) -> int:
     a, b = argv[0], argv[1]
-    if "--ignore-creation-date" in argv:
-        IGNORE_ELEMENTS.add("creationDate")
-    if "--db" in argv:
-        IGNORE_ELEMENTS.update({"creationDate", "boundedBy"})
-        IGNORE_ATTRIBUTES.update({"srsName", "srsDimension"})
-        STRIP_IDS = True
-        # nested features (rooms, installations, ...) are exported in database order
-        UNORDERED.update({"CompositeSurface", "MultiSurface", "Building", "UndergroundBuilding"})
-        UNORDERED_GENERICS = True
-    if "--subset" in argv:
-        SUBSET = True
-
+    o = Options.parse(argv)
     ta = ET.parse(a).getroot()
     tb = ET.parse(b).getroot()
     oa, ob = city_objects(ta), city_objects(tb)
@@ -200,14 +206,14 @@ def main(argv: list[str]) -> int:
     if missing:
         print(f"MISSING city objects in roundtrip: {sorted(missing)}")
         ade_errors += 1
-    if extra and not SUBSET:
+    if extra and not o.subset:
         print(f"EXTRA city objects in roundtrip: {sorted(extra)}")
         ade_errors += 1
 
     ade_total = 0
     for gid in sorted(set(oa) & set(ob)):
-        ade_a, std_a = split(oa[gid])
-        ade_b, std_b = split(ob[gid])
+        ade_a, std_a = split(oa[gid], o)
+        ade_b, std_b = split(ob[gid], o)
         ade_total += len(ade_a)
         if ade_a != ade_b:
             ga, gb = by_name(ade_a), by_name(ade_b)
@@ -227,7 +233,7 @@ def main(argv: list[str]) -> int:
                             print(f"(order of repeated {local(name)} differs)")
         if std_a != std_b:
             std_errors += 1
-            out = []
+            out: list[str] = []
             diff_paths(std_a, std_b, "", out)
             print(f"\n=== standard content differs for {gid} ===")
             print("\n".join(out[:20]))
