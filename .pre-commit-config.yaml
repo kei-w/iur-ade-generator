@@ -3,9 +3,9 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: ^(fixtures|schemas|java/ade-transform/input)/
+        exclude: ^(fixtures|schemas|java/ade-transform/input)/|^tests/(data|golden)/.*.sql$
       - id: end-of-file-fixer
-        exclude: ^(fixtures|schemas|java/ade-transform/input)/
+        exclude: ^(fixtures|schemas|java/ade-transform/input)/|^tests/(data|golden)/.*.sql$
       - id: check-yaml
       - id: check-toml
       - id: check-merge-conflict
