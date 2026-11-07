@@ -1399,9 +1399,10 @@ def load_spec(repo, citydb, version, prefixes):
     )
 
 
-def main():
-    repo, citydb, version, exclude = sys.argv[1:5]
-    prefixes = sys.argv[5].split(",") if len(sys.argv) > 5 else ["uro"]
+def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    repo, citydb, version, exclude = argv[0:4]
+    prefixes = argv[4].split(",") if len(argv) > 4 else ["uro"]
     spec = load_spec(repo, citydb, version, prefixes)
     gen = Generator(spec, repo, select_hooks(spec, exclude))
     stale = set()

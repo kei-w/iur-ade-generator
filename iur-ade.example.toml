@@ -1,0 +1,34 @@
+# Configuration of iur-ade regen / verify / recreate-db. Copy to iur-ade.toml (ignored by git) next to pyproject.toml,
+# or point IUR_ADE_CONFIG at a copy. Every key can also be set as IUR_ADE_<SECTION>_<KEY> in the environment
+# (IUR_ADE_DATABASE_PASSWORD, IUR_ADE_TOOLS_ADE_XJC, ...). Relative paths are relative to this file.
+
+[tools]
+# ade-xjc 2.10.0 (https://github.com/citygml4j/ade-xjc/releases): ade-xjc.bat, lib/, schemas/
+ade_xjc = "C:/Tools/ade-xjc-2.10.0"
+# 3DCityDB Importer/Exporter 5.5.0 with the ADE Manager plugin 2.3.0: bin/, lib/, plugins/; the extension folders
+# ade-extensions-iur20 ... ade-extensions-iur32 are created inside it
+impexp = "C:/Tools/3DCityDB-Importer-Exporter-5.5.0"
+# postgresql/SQLScripts of 3DCityDB 4.4.1 (CREATE_DB.sql)
+citydb_scripts = "C:/Tools/3dcitydb-4.4.1/postgresql/SQLScripts"
+# the psql executable (default: psql on the PATH)
+psql = "psql"
+
+[database]
+# the PostgreSQL/PostGIS server of the verification databases; the database of each edition is dropped and recreated
+host = "localhost"
+port = 5432
+user = "postgres"
+password = ""
+srid = 6697
+gml_srs_name = "urn:ogc:def:crs:EPSG::6697"
+
+[workspace]
+# the forks (default: next to this repository) and the output folder (default: out/ in this repository)
+# citygml4j = "../iur-ade-citygml4j"
+# citydb = "../iur-ade-citydb"
+# out = "out"
+
+# Per-edition overrides (the defaults are in config.EDITIONS): database name, extension folder, branch
+# [editions."3.1"]
+# database = "citydb_iur31"
+# extension_folder = "ade-extensions-iur31"

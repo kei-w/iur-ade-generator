@@ -45,6 +45,15 @@ UNORDERED_GENERICS = False
 SUBSET = False
 
 
+def reset() -> None:
+    """Restores the defaults of the command line options (module globals set by main)."""
+    global STRIP_IDS, UNORDERED_GENERICS, SUBSET
+    IGNORE_ELEMENTS.clear()
+    IGNORE_ATTRIBUTES.clear()
+    UNORDERED.clear()
+    STRIP_IDS = UNORDERED_GENERICS = SUBSET = False
+
+
 def ns_of(tag):
     return tag[1:].split("}")[0] if tag.startswith("{") else ""
 
@@ -166,7 +175,7 @@ def by_name(ade):
     return groups
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     global STRIP_IDS, SUBSET, UNORDERED_GENERICS
     a, b = argv[0], argv[1]
     if "--ignore-creation-date" in argv:

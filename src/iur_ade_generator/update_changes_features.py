@@ -1,36 +1,44 @@
 """Add the 'ADE feature types' changes to the current version section of both CHANGES.md files and rewrite its
 'Known limitations'. Idempotent.
-Usage: update_changes_features.py <citygml4j repo> <citydb repo> <citygml4j version> <citydb version> <uro version>"""
+Usage: iur-ade changes-features <citygml4j repo> <citydb repo> <citygml4j version> <citydb version> <uro version>"""
 
 import io
 import re
 import sys
 
-g, d, gv, dv, uro = sys.argv[1:6]
 NL = "\n"
 HEADING = "Changes (ADE feature types, 2026-11-07)"
-has_features = uro != "2.0"
 
-limits = []
-if uro in ("2.0", "3.0"):
-    limits.append(
-        "* `uro:ControlPoint/uro:parameter` is not supported: the %s XSD declares it with the type of `uro:ControlPoint` itself.\n"
-        % uro
-    )
-if uro == "3.2":
-    limits.append(
-        "* The feature-typed hook `uro:pointCloud` (`core:_GenericApplicationPropertyOfCityObject`) is not supported;\n"
-        "  `uro:PointCloud` itself is modelled.\n"
-    )
-if has_features:
-    limits.append(
-        "* `gml:pos` values (`uro:Elevation/elevationValue`, `uro:OffsetDepth/pos`) keep their coordinates only; `srsName` and\n"
-        "  `srsDimension` are not stored.\n"
-    )
-limits.append("* `urf`, `urg` and `urt` remain at 1.4.\n")
-known = "".join(limits)
 
-if has_features:
+def known_limitations(uro):
+    has_features = uro != "2.0"
+    limits = []
+    if uro in ("2.0", "3.0"):
+        limits.append(
+            "* `uro:ControlPoint/uro:parameter` is not supported: the %s XSD declares it with the type of `uro:ControlPoint` itself.\n"
+            % uro
+        )
+    if uro == "3.2":
+        limits.append(
+            "* The feature-typed hook `uro:pointCloud` (`core:_GenericApplicationPropertyOfCityObject`) is not supported;\n"
+            "  `uro:PointCloud` itself is modelled.\n"
+        )
+    if has_features:
+        limits.append(
+            "* `gml:pos` values (`uro:Elevation/elevationValue`, `uro:OffsetDepth/pos`) keep their coordinates only; `srsName` and\n"
+            "  `srsDimension` are not stored.\n"
+        )
+    limits.append("* `urf`, `urg` and `urt` remain at 1.4.\n")
+    return "".join(limits)
+
+
+def changes(uro):
+    """(citygml4j changes, citydb changes) of the edition."""
+    if uro == "2.0":
+        return (
+            "* The i-UR 2.0 XSD defines no ADE feature types; regenerated with the generator that supports them (no code change).",
+            "* The i-UR 2.0 XSD defines no ADE feature types; regenerated with the generator that supports them.",
+        )
     cg_changes = (
         "* The ADE feature types of the i-UR %s Urban Object module are modelled, (un)marshalled and walked:\n"
         "  `OtherConstruction` with its boundary surfaces and `ConstructionInstallation`, `UndergroundBuilding`, `Waterway`,\n"
@@ -38,7 +46,7 @@ if has_features:
         "  `Duct`, `Cable`, `ElectricityCable`, `TelecommunicationsCable`, `Appurtenance`, `Manhole`, `Handhole`)%s.\n"
         "  `UrbanObjectModule` registers them as features.\n"
         "* The JAXB properties `AbstractConstructionType/boundedBy` and `PublicLandType/id` are renamed to `boundedBySurface` and\n"
-        "  `identifier` in `binding.xjc` (ade-xjc otherwise binds the whole content model as a generic list); the model accessors\n"
+        "  `identifier` in `binding.xjb` (ade-xjc otherwise binds the whole content model as a generic list); the model accessors\n"
         "  are named alike." % (uro, " and `PointCloud`" if uro == "3.2" else "")
     )
     db_changes = (
@@ -50,10 +58,7 @@ if has_features:
         "* `OtherConstruction` and `UndergroundBuilding` are marked top-level in the schema mapping (the ADE Manager left them\n"
         "  without `topLevel`)." % uro
     )
-else:
-    cg_changes = "* The i-UR 2.0 XSD defines no ADE feature types; regenerated with the generator that supports them (no code change)."
-    db_changes = "* The i-UR 2.0 XSD defines no ADE feature types; regenerated with the generator that supports them."
-cg_changes = cg_changes.replace("binding.xjc", "binding.xjb")
+    return cg_changes, db_changes
 
 
 def patch(path, version, changes, known, hashes):
@@ -68,6 +73,15 @@ def patch(path, version, changes, known, hashes):
     io.open(path, "w", encoding="utf-8", newline="\n").write(s)
 
 
-patch(g + "/CHANGES.md", gv, cg_changes, known, "#####")
-patch(d + "/CHANGES.md", dv, db_changes, known, "####")
-print("CHANGES updated for", uro)
+def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    g, d, gv, dv, uro = argv[0:5]
+    cg_changes, db_changes = changes(uro)
+    known = known_limitations(uro)
+    patch(g + "/CHANGES.md", gv, cg_changes, known, "#####")
+    patch(d + "/CHANGES.md", dv, db_changes, known, "####")
+    print("CHANGES updated for", uro)
+
+
+if __name__ == "__main__":
+    main()

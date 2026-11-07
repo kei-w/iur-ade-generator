@@ -207,9 +207,10 @@ def add_column(ddl, table, column, pg):
     return ddl[: m.start(1)] + new_body + ddl[m.end(1) :]
 
 
-def main():
-    repo, cg4j, version = sys.argv[1:4]
-    prefixes = sys.argv[4].split(",") if len(sys.argv) > 4 else ["uro"]
+def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    repo, cg4j, version = argv[0:3]
+    prefixes = argv[3].split(",") if len(argv) > 3 else ["uro"]
     spec = urospec.Spec(urospec.modules_for(cg4j, prefixes, version), os.path.join(repo, MAP), os.path.join(repo, PG))
     schema_ids = {m.schema_id: m for m in spec.modules.values()}
     mapping = read(os.path.join(repo, MAP))

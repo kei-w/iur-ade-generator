@@ -43,7 +43,7 @@ public class Register {
             boolean registered = controller.registerADE();
             System.out.println("registerADE: " + registered);
             org.citydb.plugins.ade_manager.registry.model.DBSQLScript deleteScript = controller.createDeleteScripts();
-            java.nio.file.Files.writeString(java.nio.file.Path.of(System.getProperty("deleteScript", "delete_script.sql")), deleteScript.toString());
+            java.nio.file.Files.writeString(java.nio.file.Path.of(System.getProperty("deleteScript", "build/delete_script.sql")), deleteScript.toString());
             controller.installDBScript(deleteScript);
             System.out.println("delete scripts installed");
             controller.installDBScript(controller.createEnvelopeScripts());

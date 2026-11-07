@@ -3356,9 +3356,10 @@ def render_imports(imports):
     return out
 
 
-def main():
-    repo, cg4j, version, preset = sys.argv[1:5]
-    prefixes = sys.argv[5].split(",") if len(sys.argv) > 5 else ["uro"]
+def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    repo, cg4j, version, preset = argv[0:4]
+    prefixes = argv[4].split(",") if len(argv) > 4 else ["uro"]
     spec = urospec.Spec(
         urospec.modules_for(cg4j, prefixes, version),
         os.path.join(repo, "resources", "database", "schema-mapping", "schema-mapping.xml"),

@@ -49,8 +49,9 @@ def derived_type_renames(xsd_path):
     return pairs
 
 
-def main():
-    folder = sys.argv[1]
+def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    folder = argv[0]
     folder = (
         folder if os.path.isfile(os.path.join(folder, "binding.xjb")) else os.path.join(folder, "resources", "ade-xjc")
     )

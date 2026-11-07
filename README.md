@@ -18,20 +18,47 @@ attributes, 11: ADE feature types, 12: urban function module); the main decision
 
 - Python 3.14 and [uv](https://docs.astral.sh/uv/) (`uv sync --dev` installs the Python version of `.python-version` and
   the development tools).
-- The two forks checked out next to this repository (`../iur-ade-citygml4j`, `../iur-ade-citydb`); the scripts switch
-  them to the branch of the edition.
+- The two forks checked out next to this repository (`../iur-ade-citygml4j`, `../iur-ade-citydb`, configurable); the
+  commands switch them to the branch of the edition.
 - JDK 11 for the forks and the Java harnesses (Gradle wrapper); the forks pin it with `mise`.
-- For the full regeneration and the round trip (`scripts/regen_edition.sh`): ade-xjc 2.10.0, the 3DCityDB
-  Importer/Exporter 5.5.0 with the ADE Manager plugin 2.3.0, the 3DCityDB 4.4.1 SQL scripts, PostgreSQL/PostGIS and
-  `psql`. The scripts still take these from the paths of the development machine (`D:\Tools\...`,
-  `localhost:35432`); moving them into a configuration file is the next step of the migration.
+- For `regen`, `verify --db` and `recreate-db`: [ade-xjc 2.10.0](https://github.com/citygml4j/ade-xjc/releases), the
+  [3DCityDB Importer/Exporter 5.5.0](https://github.com/3dcitydb/importer-exporter/releases) with the ADE Manager
+  plugin 2.3.0, the SQL scripts of [3DCityDB 4.4.1](https://github.com/3dcitydb/3dcitydb/releases), a PostgreSQL/PostGIS
+  server and `psql`. Their locations and the database connection are configured in `iur-ade.toml` (copy
+  [iur-ade.example.toml](iur-ade.example.toml); every key can also be given as `IUR_ADE_<SECTION>_<KEY>` in the
+  environment).
 
 ## Usage
 
 ```bash
 uv sync --dev
+cp iur-ade.example.toml iur-ade.toml   # and edit the tool folders and the database connection
 uv run iur-ade --help
 ```
+
+Regenerate one edition end to end (urf schema of the edition into the citygml4j fork, JAXB classes with ade-xjc,
+schema mapping, code of both forks, builds, extension folder, fixture, fresh verification database, fixture round
+trip, XSD validation):
+
+```bash
+uv run iur-ade regen 3.1
+```
+
+`--skip-jaxb` keeps the committed JAXB classes (no ade-xjc run), `--skip-db` stops after the fixture. The outputs
+(logs, the exported fixture, the comparison report) go to `out/`.
+
+Round-trip real CityGML files (folders recursively) through citygml4j with the ADE module, or with `--db` through a
+fresh verification database, and compare each file with the result:
+
+```bash
+uv run iur-ade verify 3.1 ../_data/survey/maebashi-shi
+uv run iur-ade verify 3.1 --db ../_data/survey/maebashi-shi ../_data/urf_survey/some_file.gml
+```
+
+`recreate-db <version>` drops and recreates the verification database of an edition and registers its extension
+folder (what `regen` and `verify --db` do before importing).
+
+The generator commands take the positional arguments of the modules they run:
 
 | Command | Purpose |
 |---|---|
@@ -44,31 +71,23 @@ uv run iur-ade --help
 | `iur-ade compare <original.gml> <roundtrip.gml> [--db] [--subset]` | semantic comparison of the city objects of two files (`--db` neutralises the known Importer/Exporter round-trip differences, `--subset` ignores extra objects) |
 | `iur-ade changes-features ...`, `iur-ade changes-urf ...` | CHANGES.md sections of both forks (idempotent) |
 
-The whole chain of one edition, including the JAXB classes, the builds, the extension folder, a fresh verification
-database, the fixture round trip and the XSD validation:
+The Importer/Exporter cannot load two editions of the extension at once, so they live in separate folders of the
+Importer/Exporter installation (`ade-extensions-iur20` ... `ade-extensions-iur32`, created by `regen`) and are
+selected with `--ade-extensions=<folder>`.
 
-```bash
-bash scripts/regen_edition.sh 3.1
-```
-
-Other scripts: `scripts/recreate_db.sh` (drop and recreate a verification database and register an extension folder),
-`scripts/roundtrip_batch.sh` (round trip of every CityGML file of a folder through citygml4j only),
-`scripts/db_roundtrip_batch.sh` (import a list of files into a fresh database, export everything and compare each
-file), `scripts/tag_editions.sh` (annotated tags of the four editions in both forks and their distributions).
-
-The Importer/Exporter cannot load two editions of the extension at once, so they live in separate folders
-(`ade-extensions-iur20` ... `ade-extensions-iur32`) and are selected with `--ade-extensions=<folder>`.
+`scripts/tag_editions.sh` tags the four editions in both forks (annotated tags, local only) and builds their
+distributions.
 
 ## Layout
 
 | Folder | Content |
 |---|---|
-| `src/iur_ade_generator/` | the generators: `urospec.py` (specification model of the modules from the XSD, the JAXB classes and the schema mapping), `patch_binding.py`, `patch_mapping.py`, `gen_mapping.py`, `gen_citygml4j.py`, `gen_citydb.py`, `gen_fixture.py`, `compare.py`, `update_changes_*.py`, `cli.py` |
-| `schemas/iur/urf/<version>/urbanFunction.xsd` | the urf schema of each edition as shipped in the PLATEAU datasets (Hachioji 2020 = 2.0, Kyoto 2024 = 3.0, Maebashi 2023 = 3.1, Osaka 2025 = 3.2); `regen_edition.sh` copies it into the citygml4j fork |
+| `src/iur_ade_generator/` | `config.py` (editions, tools, database, workspace), `cli.py`, `regen.py`, `verify.py`, `database.py`, `tools.py` (subprocess wrappers) and the generators: `urospec.py` (specification model of the modules from the XSD, the JAXB classes and the schema mapping), `patch_binding.py`, `patch_mapping.py`, `gen_mapping.py`, `gen_citygml4j.py`, `gen_citydb.py`, `gen_fixture.py`, `compare.py`, `update_changes_*.py` |
+| `schemas/iur/urf/<version>/urbanFunction.xsd` | the urf schema of each edition as shipped in the PLATEAU datasets (Hachioji 2020 = 2.0, Kyoto 2024 = 3.0, Maebashi 2023 = 3.1, Osaka 2025 = 3.2); `regen` copies it into the citygml4j fork |
 | `schemas/iur/urg/<version>/`, `schemas/iur/urt/<version>/` | the statistical grid and public transit schemas 2.0-3.2 from `https://www.geospatial.jp/iur/schemas/` (not supported yet; the forks keep urg/urt 1.4) |
 | `java/roundtrip/` | Gradle project (composite build of `../../../iur-ade-citygml4j`): `gradlew run --args="<in.gml> <out.gml>"` reads a CityGML file with the ADE module and writes it back; `gradlew validate --args="<file.gml> <xsd>..."` validates against local XSDs |
-| `java/ade-transform/` | Gradle project on the Importer/Exporter 5.5.0 + ADE Manager 2.3.0 class path: `gradlew run` (headless ADE Manager transformation), `gradlew register` (register an extension in a 3DCityDB, `-DdeleteScript=` dumps the delete functions), `gradlew commitOrder` / `gradlew tableWeights` (the batch commit order and the table weights the Importer/Exporter derives from a mapping) |
-| `fixtures/` | `uro<ver>_building_all.gml`: one building using every building attribute field of the edition (hand-written); the generated `iur<ver>_all.gml` / `uro<ver>_all.gml` are written here by `regen_edition.sh` and not versioned |
+| `java/ade-transform/` | Gradle project on the Importer/Exporter 5.5.0 + ADE Manager 2.3.0 class path (`-PimpexpHome=<folder>` or `IMPEXP_HOME`): `gradlew run` (headless ADE Manager transformation), `gradlew register` (register an extension in a 3DCityDB, `-DdeleteScript=` dumps the delete functions), `gradlew commitOrder` / `gradlew tableWeights` (the batch commit order and the table weights the Importer/Exporter derives from a mapping) |
+| `fixtures/` | `uro<ver>_building_all.gml`: one building using every building attribute field of the edition (hand-written); the generated `iur<ver>_all.gml` are written here by `regen` and not versioned |
 | `tests/` | unit tests (`uv run pytest`); tests marked `integration` need the forks and the tools |
 | `out/` | outputs of the verification runs (not versioned) |
 
@@ -92,6 +111,10 @@ The Importer/Exporter cannot load two editions of the extension at once, so they
 - **Hooks of `core:_CityObject`** (3.2 `uro:pointCloud`) live in an injection table of `AbstractCityObjectType`
   (`ur_cityobject_2`); hooked features are stored as city objects of their own.
 - **Lists** of simple values, measures and dates are stored as joined strings.
+- **JAXB classes** are generated by ade-xjc from a copy of the fork's `resources/ade-xjc` folder (wrapper schema,
+  binding, module schemas) in `out/ade-xjc/<version>`, with the imports of the GML/CityGML schemas pointed at the
+  ade-xjc installation; all four packages are taken from one run because the `urt` classes refer to the `urf` feature
+  classes, line endings are LF, and files that only differ by their generation timestamp are kept as committed.
 
 ## Development
 

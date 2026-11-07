@@ -554,9 +554,10 @@ def append_to_section(text, title, block):
     return text[:pos] + block + text[pos:]
 
 
-def main():
-    repo, cg4j, version, prefix = sys.argv[1:5]
-    deps = sys.argv[5].split(",") if len(sys.argv) > 5 else ["uro"]
+def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    repo, cg4j, version, prefix = argv[0:4]
+    deps = argv[4].split(",") if len(argv) > 4 else ["uro"]
     spec = urospec.Spec(
         urospec.modules_for(cg4j, deps + [prefix], version), os.path.join(repo, MAP), os.path.join(repo, PG)
     )

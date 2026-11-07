@@ -394,9 +394,10 @@ class Fixture:
         return "\n".join(L) + "\n"
 
 
-def main():
-    cg4j, citydb, version, preset, out = sys.argv[1:6]
-    prefixes = sys.argv[6].split(",") if len(sys.argv) > 6 else ["uro"]
+def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    cg4j, citydb, version, preset, out = argv[0:5]
+    prefixes = argv[5].split(",") if len(argv) > 5 else ["uro"]
     spec = urospec.Spec(
         urospec.modules_for(cg4j, prefixes, version),
         os.path.join(citydb, "resources", "database", "schema-mapping", "schema-mapping.xml"),

@@ -8,7 +8,11 @@ java {
     }
 }
 
-def impexpHome = 'D:/Tools/3DCityDB-Importer-Exporter-5.5.0/3DCityDB-Importer-Exporter-5.5.0'
+// the Importer/Exporter 5.5.0 folder (with the ADE Manager plugin): -PimpexpHome=<folder> or IMPEXP_HOME
+def impexpHome = project.findProperty('impexpHome') ?: System.getenv('IMPEXP_HOME')
+if (impexpHome == null) {
+    throw new GradleException('set -PimpexpHome=<3DCityDB Importer/Exporter 5.5.0 folder> or the environment variable IMPEXP_HOME')
+}
 
 dependencies {
     implementation fileTree(dir: "${impexpHome}/lib", include: '*.jar')
@@ -21,7 +25,7 @@ application {
 }
 
 tasks.register('register', JavaExec) {
-    systemProperty 'deleteScript', System.getProperty('deleteScript', 'delete_script.sql')
+    systemProperty 'deleteScript', System.getProperty('deleteScript', 'build/delete_script.sql')
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'poc.Register'
 }
