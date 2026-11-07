@@ -1,0 +1,38 @@
+plugins {
+    id 'application'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+def impexpHome = 'D:/Tools/3DCityDB-Importer-Exporter-5.5.0/3DCityDB-Importer-Exporter-5.5.0'
+
+dependencies {
+    implementation fileTree(dir: "${impexpHome}/lib", include: '*.jar')
+    implementation fileTree(dir: "${impexpHome}/plugins/plugin-ade-manager-2.3.0", include: '*.jar')
+    implementation fileTree(dir: "${impexpHome}/plugins/plugin-ade-manager-2.3.0/lib", include: '*.jar')
+}
+
+application {
+    mainClass = 'poc.Transform'
+}
+
+tasks.register('register', JavaExec) {
+    systemProperty 'deleteScript', System.getProperty('deleteScript', 'delete_script.sql')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'poc.Register'
+}
+
+tasks.register('commitOrder', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'poc.CommitOrder'
+}
+
+tasks.register('tableWeights', JavaExec) {
+    systemProperty 'dump', System.getProperty('dump', '')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'poc.TableWeights'
+}

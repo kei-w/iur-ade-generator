@@ -1,0 +1,31 @@
+# outputs of the verification runs
+out/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+dist/
+
+# local configuration (tool paths, database password)
+iur-ade.toml
+
+# Gradle
+java/*/.gradle/
+java/*/build/
+java/*/gradle.properties
+
+# generated fixtures (iur-ade fixture ...); the hand-written building fixtures are versioned
+fixtures/iur[0-9][0-9]_all.gml
+fixtures/uro[0-9][0-9]_all.gml
+fixtures/uro[0-9][0-9]_all_phase?.gml
+
+# IDEs
+.idea/
+*.iml
+.vscode/

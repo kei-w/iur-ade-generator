@@ -1,0 +1,32 @@
+# Normalise line endings to LF in the repository; text files are checked out with LF on every platform
+# (the generators write LF and compare their output with the committed files of the forks).
+* text=auto eol=lf
+
+*.py text eol=lf
+*.sh text eol=lf
+*.java text eol=lf
+*.gradle text eol=lf
+*.xml text eol=lf
+*.sql text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.xjb text eol=lf
+
+# Schemas and data files are kept byte for byte as taken from the PLATEAU datasets and geospatial.jp
+# (the scripts copy them into the forks and compare the copies with the committed files)
+schemas/** -text
+fixtures/** -text
+java/ade-transform/input/** -text
+
+# Windows batch files need CRLF
+*.bat text eol=crlf
+
+# Binary
+*.jar binary
+*.zip binary
+*.png binary
+
+# Gradle wrapper scripts keep their own line endings
+gradlew text eol=lf

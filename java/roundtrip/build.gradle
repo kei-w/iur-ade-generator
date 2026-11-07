@@ -1,0 +1,26 @@
+plugins {
+    id 'application'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.citygml4j.ade:iur-ade-citygml4j:2.0.0'
+}
+
+application {
+    mainClass = 'poc.RoundTrip'
+}
+
+tasks.register('validate', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'poc.Validate'
+}

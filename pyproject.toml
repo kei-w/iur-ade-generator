@@ -1,0 +1,89 @@
+[project]
+name = "iur-ade-generator"
+version = "0.1.0"
+description = "Code generators and verification harness for the i-UR ADE extension of citygml4j and the 3D City Database Importer/Exporter"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+authors = [{ name = "kei-w" }]
+keywords = ["CityGML", "PLATEAU", "i-UR", "ADE", "3DCityDB", "citygml4j"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/kei-w/iur-ade-generator"
+
+[project.scripts]
+iur-ade = "iur_ade_generator.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/iur_ade_generator"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14",
+    "pre-commit>=4.0",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.9",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# The generator modules were copied as they ran in the PoC workspace. Their line length, unused variables and the
+# rules below are brought into line module by module during the split of the generators (task 13, section 4).
+[tool.ruff.lint.per-file-ignores]
+"src/iur_ade_generator/gen_*.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
+"src/iur_ade_generator/patch_*.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
+"src/iur_ade_generator/update_changes_*.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
+"src/iur_ade_generator/urospec.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
+"src/iur_ade_generator/compare.py" = ["E501", "E741", "F841", "B", "SIM", "RUF", "UP"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+files = ["src", "tests"]
+
+# Untyped generator modules (same list as above): checked once they are split into typed modules.
+[[tool.mypy.overrides]]
+module = [
+    "iur_ade_generator.gen_citydb",
+    "iur_ade_generator.gen_citygml4j",
+    "iur_ade_generator.gen_fixture",
+    "iur_ade_generator.gen_mapping",
+    "iur_ade_generator.patch_binding",
+    "iur_ade_generator.patch_mapping",
+    "iur_ade_generator.update_changes_features",
+    "iur_ade_generator.update_changes_urf",
+    "iur_ade_generator.urospec",
+    "iur_ade_generator.compare",
+]
+ignore_errors = true
+
+# The tests call the untyped generator modules.
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_calls = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: needs the forks, the JAXB classes, ade-xjc, the Importer/Exporter or a database (run with -m integration)",
+]
+addopts = "-m 'not integration'"
