@@ -6,6 +6,7 @@ Combines three sources into one model:
   * the ADE Manager schema mapping (tables, columns, joins).
 Types are kept per module (the XSD prefix: uro, urf) and referenced by their qualified name across modules.
 """
+
 import os
 import re
 import sys
@@ -15,41 +16,81 @@ from collections import OrderedDict
 XS = "{http://www.w3.org/2001/XMLSchema}"
 
 SCALAR_KINDS = {
-    "xs:string": "string", "xs:anyURI": "string", "xs:integer": "integer", "xs:int": "integer",
+    "xs:string": "string",
+    "xs:anyURI": "string",
+    "xs:integer": "integer",
+    "xs:int": "integer",
     "xs:nonNegativeInteger": "integer",
-    "xs:double": "double", "xs:boolean": "boolean", "xs:date": "date", "xs:gYear": "year",
-    "xs:gYearMonth": "yearMonth", "gml:CodeType": "code", "gml:MeasureType": "measure",
-    "gml:LengthType": "length", "gml:doubleList": "doubleList", "gml:GeometryPropertyType": "geometry",
-    "gml:PointPropertyType": "point", "gml:GeometricComplexPropertyType": "complex",
-    "core:AddressPropertyType": "address", "gml:StringOrRefType": "stringOrRef",
-    "gml:MultiSurfacePropertyType": "multiSurface", "gml:MultiCurvePropertyType": "multiCurve",
-    "gml:MultiPointPropertyType": "multiPoint", "gml:DirectPositionType": "directPosition",
+    "xs:double": "double",
+    "xs:boolean": "boolean",
+    "xs:date": "date",
+    "xs:gYear": "year",
+    "xs:gYearMonth": "yearMonth",
+    "gml:CodeType": "code",
+    "gml:MeasureType": "measure",
+    "gml:LengthType": "length",
+    "gml:doubleList": "doubleList",
+    "gml:GeometryPropertyType": "geometry",
+    "gml:PointPropertyType": "point",
+    "gml:GeometricComplexPropertyType": "complex",
+    "core:AddressPropertyType": "address",
+    "gml:StringOrRefType": "stringOrRef",
+    "gml:MultiSurfacePropertyType": "multiSurface",
+    "gml:MultiCurvePropertyType": "multiCurve",
+    "gml:MultiPointPropertyType": "multiPoint",
+    "gml:DirectPositionType": "directPosition",
 }
 
 # model class names that would clash with a JAXB class of the same simple name are renamed here;
 # the leading underscore of the abstract feature types follows the citygml4j "Abstract" convention
-MODEL_RENAMES = {"ControlPointTypeType": "ControlPointParameter", "_BoundarySurfaceType": "AbstractBoundarySurface",
-                 "_BoundarySurfacePropertyType": "AbstractBoundarySurfaceProperty",
-                 # the urf root keeps its 1.4/3.1 name (and table ur_urbanfunction) where the schema declares it with an
-                 # underscore (3.2): the hand-written balloon and vis exporter classes refer to it
-                 "_UrbanFunctionType": "UrbanFunction", "_UrbanFunctionPropertyType": "UrbanFunctionProperty"}
+MODEL_RENAMES = {
+    "ControlPointTypeType": "ControlPointParameter",
+    "_BoundarySurfaceType": "AbstractBoundarySurface",
+    "_BoundarySurfacePropertyType": "AbstractBoundarySurfaceProperty",
+    # the urf root keeps its 1.4/3.1 name (and table ur_urbanfunction) where the schema declares it with an
+    # underscore (3.2): the hand-written balloon and vis exporter classes refer to it
+    "_UrbanFunctionType": "UrbanFunction",
+    "_UrbanFunctionPropertyType": "UrbanFunctionProperty",
+}
 
 # CityGML (and GML) base types of the ADE feature types -> citygml4j model class, JAXB class, marshaller accessor
 FEATURE_BASES = {
-    "core:AbstractCityObjectType": ("org.citygml4j.model.citygml.core.AbstractCityObject", "net.opengis.citygml._2.AbstractCityObjectType",
-                                    "getCore200Marshaller().marshalAbstractCityObject", "getCore200Unmarshaller().unmarshalAbstractCityObject"),
-    "bldg:AbstractBuildingType": ("org.citygml4j.model.citygml.building.AbstractBuilding", "net.opengis.citygml.building._2.AbstractBuildingType",
-                                  "getBuilding200Marshaller().marshalAbstractBuilding", "getBuilding200Unmarshaller().unmarshalAbstractBuilding"),
-    "tran:TransportationComplexType": ("org.citygml4j.model.citygml.transportation.TransportationComplex",
-                                       "net.opengis.citygml.transportation._2.TransportationComplexType",
-                                       "getTransportation200Marshaller().marshalTransportationComplex",
-                                       "getTransportation200Unmarshaller().unmarshalTransportationComplex"),
-    "frn:CityFurnitureType": ("org.citygml4j.model.citygml.cityfurniture.CityFurniture", "net.opengis.citygml.cityfurniture._2.CityFurnitureType",
-                              "getCityFurniture200Marshaller().marshalCityFurniture", "getCityFurniture200Unmarshaller().unmarshalCityFurniture"),
-    "luse:LandUseType": ("org.citygml4j.model.citygml.landuse.LandUse", "net.opengis.citygml.landuse._2.LandUseType",
-                         "getLandUse200Marshaller().marshalLandUse", "getLandUse200Unmarshaller().unmarshalLandUse"),
-    "gml:AbstractFeatureType": ("org.citygml4j.model.gml.feature.AbstractFeature", "net.opengis.gml.AbstractFeatureType",
-                                "getGMLMarshaller().marshalAbstractFeature", "getGMLUnmarshaller().unmarshalAbstractFeature"),
+    "core:AbstractCityObjectType": (
+        "org.citygml4j.model.citygml.core.AbstractCityObject",
+        "net.opengis.citygml._2.AbstractCityObjectType",
+        "getCore200Marshaller().marshalAbstractCityObject",
+        "getCore200Unmarshaller().unmarshalAbstractCityObject",
+    ),
+    "bldg:AbstractBuildingType": (
+        "org.citygml4j.model.citygml.building.AbstractBuilding",
+        "net.opengis.citygml.building._2.AbstractBuildingType",
+        "getBuilding200Marshaller().marshalAbstractBuilding",
+        "getBuilding200Unmarshaller().unmarshalAbstractBuilding",
+    ),
+    "tran:TransportationComplexType": (
+        "org.citygml4j.model.citygml.transportation.TransportationComplex",
+        "net.opengis.citygml.transportation._2.TransportationComplexType",
+        "getTransportation200Marshaller().marshalTransportationComplex",
+        "getTransportation200Unmarshaller().unmarshalTransportationComplex",
+    ),
+    "frn:CityFurnitureType": (
+        "org.citygml4j.model.citygml.cityfurniture.CityFurniture",
+        "net.opengis.citygml.cityfurniture._2.CityFurnitureType",
+        "getCityFurniture200Marshaller().marshalCityFurniture",
+        "getCityFurniture200Unmarshaller().unmarshalCityFurniture",
+    ),
+    "luse:LandUseType": (
+        "org.citygml4j.model.citygml.landuse.LandUse",
+        "net.opengis.citygml.landuse._2.LandUseType",
+        "getLandUse200Marshaller().marshalLandUse",
+        "getLandUse200Unmarshaller().unmarshalLandUse",
+    ),
+    "gml:AbstractFeatureType": (
+        "org.citygml4j.model.gml.feature.AbstractFeature",
+        "net.opengis.gml.AbstractFeatureType",
+        "getGMLMarshaller().marshalAbstractFeature",
+        "getGMLUnmarshaller().unmarshalAbstractFeature",
+    ),
 }
 # base types whose citygml4j class is abstract: the ADE class implements the visitor methods and the ADE walkers visit it
 ABSTRACT_FEATURE_BASES = {"core:AbstractCityObjectType", "bldg:AbstractBuildingType", "gml:AbstractFeatureType"}
@@ -63,7 +104,12 @@ MEMBER_FEATURE_MODULES = {"urf"}
 
 # the i-UR modules: XSD prefix -> Java name used by the citygml4j and citydb class names
 MODULE_NAMES = {"uro": "UrbanObject", "urf": "UrbanFunction", "urg": "StatisticalGrid", "urt": "PublicTransit"}
-XSD_FILES = {"uro": "urbanObject.xsd", "urf": "urbanFunction.xsd", "urg": "statisticalGrid.xsd", "urt": "publicTransit.xsd"}
+XSD_FILES = {
+    "uro": "urbanObject.xsd",
+    "urf": "urbanFunction.xsd",
+    "urg": "statisticalGrid.xsd",
+    "urt": "publicTransit.xsd",
+}
 
 
 def local(tag):
@@ -98,23 +144,36 @@ class Field:
         self.xsd_type = xsd_type
         self.required = min_occurs != "0"
         self.multi = max_occurs != "1"
-        self.kind = None          # scalar kind, "property", "inline", "enum", "cityObjectRef"
-        self.target = None        # Type for property/inline/cityObjectRef, Enum for enum
-        self.jaxb = None          # JaxbProperty
-        self.column = None        # mapping info (dict)
-        self.enum_values = None   # allowed values of a string field restricted by an enumeration
-        self.owner = None         # declaring Type
+        self.kind = None  # scalar kind, "property", "inline", "enum", "cityObjectRef"
+        self.target = None  # Type for property/inline/cityObjectRef, Enum for enum
+        self.jaxb = None  # JaxbProperty
+        self.column = None  # mapping info (dict)
+        self.enum_values = None  # allowed values of a string field restricted by an enumeration
+        self.owner = None  # declaring Type
 
     @property
     def model_type(self):
         """Java type of the field in the citygml4j model."""
         base = {
-            "string": "String", "integer": "Integer", "double": "Double", "boolean": "Boolean",
-            "date": "LocalDate", "year": "Year", "yearMonth": "YearMonth", "code": "Code",
-            "measure": "Measure", "length": "Length", "doubleList": "List<Double>",
-            "geometry": "GeometryProperty<? extends AbstractGeometry>", "point": "PointProperty",
-            "complex": "GeometricComplexProperty", "address": "AddressProperty", "stringOrRef": "StringOrRef",
-            "multiSurface": "MultiSurfaceProperty", "multiCurve": "MultiCurveProperty", "multiPoint": "MultiPointProperty",
+            "string": "String",
+            "integer": "Integer",
+            "double": "Double",
+            "boolean": "Boolean",
+            "date": "LocalDate",
+            "year": "Year",
+            "yearMonth": "YearMonth",
+            "code": "Code",
+            "measure": "Measure",
+            "length": "Length",
+            "doubleList": "List<Double>",
+            "geometry": "GeometryProperty<? extends AbstractGeometry>",
+            "point": "PointProperty",
+            "complex": "GeometricComplexProperty",
+            "address": "AddressProperty",
+            "stringOrRef": "StringOrRef",
+            "multiSurface": "MultiSurfaceProperty",
+            "multiCurve": "MultiCurveProperty",
+            "multiPoint": "MultiPointProperty",
             "directPosition": "DirectPosition",
         }
         if self.kind in ("property", "inline", "enum", "cityObjectRef"):
@@ -126,8 +185,23 @@ class Field:
     @property
     def is_child(self):
         """Whether the model stores the value as a child object (ModelObjects.setParent)."""
-        return self.kind in ("code", "measure", "length", "property", "inline", "geometry", "point", "complex", "address", "stringOrRef",
-                             "multiSurface", "multiCurve", "multiPoint", "directPosition", "cityObjectRef")
+        return self.kind in (
+            "code",
+            "measure",
+            "length",
+            "property",
+            "inline",
+            "geometry",
+            "point",
+            "complex",
+            "address",
+            "stringOrRef",
+            "multiSurface",
+            "multiCurve",
+            "multiPoint",
+            "directPosition",
+            "cityObjectRef",
+        )
 
     @property
     def is_feature_property(self):
@@ -143,7 +217,9 @@ class Field:
     @property
     def foreign(self):
         """The target belongs to another module than the declaring type."""
-        return self.kind in ("property", "inline", "enum", "cityObjectRef") and self.target.module is not self.owner.module
+        return (
+            self.kind in ("property", "inline", "enum", "cityObjectRef") and self.target.module is not self.owner.module
+        )
 
     @property
     def lod(self):
@@ -157,9 +233,9 @@ class Field:
 
 class Enum:
     def __init__(self, name, values, module):
-        self.name = name              # XSD simpleType name
-        self.model = cap(name)        # model enum class (referenced qualified in bind code)
-        self.jaxb = cap(name)         # JAXB enum class (ade-xjc capitalises the simple type name)
+        self.name = name  # XSD simpleType name
+        self.model = cap(name)  # model enum class (referenced qualified in bind code)
+        self.jaxb = cap(name)  # JAXB enum class (ade-xjc capitalises the simple type name)
         self.values = values
         self.module = module
 
@@ -170,20 +246,20 @@ class Enum:
 
 class Type:
     def __init__(self, name, module):
-        self.name = name              # XSD complexType name
+        self.name = name  # XSD complexType name
         self.module = module
         self.base = None
         self.abstract = False
         self.fields = []
         self.subtypes = []
-        self.element = None           # global element declared with this type
+        self.element = None  # global element declared with this type
         self.is_property = name.endswith("PropertyType")
-        self.prop_target = None       # for property types: the target Type (None for a CityGML target, see foreign_target)
-        self.foreign_target = None    # for property types referencing a CityGML element, e.g. "core:_CityObject"
-        self.polymorphic = False      # for property types: JAXB uses JAXBElement for the content
-        self.mapping = None           # MappingType
+        self.prop_target = None  # for property types: the target Type (None for a CityGML target, see foreign_target)
+        self.foreign_target = None  # for property types referencing a CityGML element, e.g. "core:_CityObject"
+        self.polymorphic = False  # for property types: JAXB uses JAXBElement for the content
+        self.mapping = None  # MappingType
         self.choice = False
-        self.core_base = None         # CityGML/GML base type of a feature type hierarchy, e.g. "core:AbstractCityObjectType"
+        self.core_base = None  # CityGML/GML base type of a feature type hierarchy, e.g. "core:AbstractCityObjectType"
         self.spec = module.spec
 
     @property
@@ -203,9 +279,15 @@ class Type:
     @property
     def top_level(self):
         """A concrete city object type that is not nested in another ADE feature (the ADE Manager misses some)."""
-        return (self.is_feature and not self.abstract and self.root().core_base != "gml:AbstractFeatureType"
-                and (self.module.prefix in MEMBER_FEATURE_MODULES
-                     or not any(a.qname in self.spec.nested_features for a in [self] + self.ancestors())))
+        return (
+            self.is_feature
+            and not self.abstract
+            and self.root().core_base != "gml:AbstractFeatureType"
+            and (
+                self.module.prefix in MEMBER_FEATURE_MODULES
+                or not any(a.qname in self.spec.nested_features for a in [self] + self.ancestors())
+            )
+        )
 
     @property
     def model(self):
@@ -262,14 +344,14 @@ class Hook:
     """A generic application property element hooked into a CityGML feature type."""
 
     def __init__(self, element, target, prop_type, module):
-        self.element = element        # e.g. "bldgDisasterRiskAttribute"
-        self.target = target          # e.g. "AbstractBuilding"
-        self.prefix = None            # e.g. "bldg"
-        self.prop_type = prop_type    # property Type (or None for simple hooks)
+        self.element = element  # e.g. "bldgDisasterRiskAttribute"
+        self.target = target  # e.g. "AbstractBuilding"
+        self.prefix = None  # e.g. "bldg"
+        self.prop_type = prop_type  # property Type (or None for simple hooks)
         self.module = module
         self.xsd_type = None
-        self.injection = None         # MappingInjection
-        self.mapping = None           # mapping property info (dict)
+        self.injection = None  # MappingInjection
+        self.mapping = None  # mapping property info (dict)
 
     @property
     def multi(self):
@@ -285,8 +367,8 @@ class Hook:
 
 class JaxbProperty:
     def __init__(self, getter, setter, java_type, is_list, is_jaxb_element, primitive):
-        self.getter = getter          # e.g. "getBranchID" / "isIsTollRoad"
-        self.setter = setter          # e.g. "setBranchID" (None for lists)
+        self.getter = getter  # e.g. "getBranchID" / "isIsTollRoad"
+        self.setter = setter  # e.g. "setBranchID" (None for lists)
         self.java_type = java_type
         self.is_list = is_list
         self.is_jaxb_element = is_jaxb_element
@@ -311,7 +393,7 @@ class MappingType:
         self.top_level = el.get("topLevel") == "true"
         self.base_id = None
         self.base_join = None
-        self.props = OrderedDict()    # path -> dict
+        self.props = OrderedDict()  # path -> dict
         for c in el:
             tag = local(c.tag)
             if tag == "extension":
@@ -327,8 +409,13 @@ class MappingType:
 
 def parse_property(c):
     tag = local(c.tag)
-    p = {"tag": tag, "path": c.get("path"), "maxOccurs": c.get("maxOccurs"), "minOccurs": c.get("minOccurs"),
-         "schema": c.get("schema")}
+    p = {
+        "tag": tag,
+        "path": c.get("path"),
+        "maxOccurs": c.get("maxOccurs"),
+        "minOccurs": c.get("minOccurs"),
+        "schema": c.get("schema"),
+    }
     if tag == "attribute":
         p["column"] = c.get("column")
         p["type"] = c.get("type")
@@ -388,14 +475,14 @@ class Module:
         self.spec = None
         self.types = OrderedDict()
         self.enums = OrderedDict()
-        self.elements = OrderedDict()     # element name -> type name
+        self.elements = OrderedDict()  # element name -> type name
         self.hooks = []
-        self.factory = {}                 # element name -> ObjectFactory method name
+        self.factory = {}  # element name -> ObjectFactory method name
         self.jaxb_classes = set()
         self.mapping_types = OrderedDict()
         self.schema_id = None
         self.namespace = ET.parse(xsd_path).getroot().get("targetNamespace")
-        self.version = self.namespace.rstrip("/").rsplit("/", 1)[1]           # e.g. "3.1"
+        self.version = self.namespace.rstrip("/").rsplit("/", 1)[1]  # e.g. "3.1"
 
     @property
     def version_const(self):
@@ -403,7 +490,11 @@ class Module:
 
     @property
     def schema_url(self):
-        return self.namespace.replace("/iur/%s/" % self.prefix, "/iur/schemas/%s/" % self.prefix) + "/" + XSD_FILES[self.prefix]
+        return (
+            self.namespace.replace("/iur/%s/" % self.prefix, "/iur/schemas/%s/" % self.prefix)
+            + "/"
+            + XSD_FILES[self.prefix]
+        )
 
     @property
     def model_pkg(self):
@@ -439,8 +530,8 @@ class Spec:
         for m in modules:
             m.spec = self
         self.injections = []
-        self.ddl_tables = OrderedDict()   # table -> [columns]
-        self.table_sequence = {}          # table -> sequence used as default of its id column
+        self.ddl_tables = OrderedDict()  # table -> [columns]
+        self.table_sequence = {}  # table -> sequence used as default of its id column
         self.sequences = []
         for m in modules:
             self._parse_xsd(m)
@@ -488,7 +579,14 @@ class Spec:
                     tag = local(e.tag)
                     if tag == "element":
                         if e.get("name"):
-                            t.fields.append(Field(e.get("name"), e.get("type"), "0" if in_choice else e.get("minOccurs", "1"), e.get("maxOccurs", "1")))
+                            t.fields.append(
+                                Field(
+                                    e.get("name"),
+                                    e.get("type"),
+                                    "0" if in_choice else e.get("minOccurs", "1"),
+                                    e.get("maxOccurs", "1"),
+                                )
+                            )
                             names.append(e.get("name"))
                         elif e.get("ref") and t.is_property:
                             t.prop_target = e.get("ref")
@@ -511,7 +609,7 @@ class Spec:
             if tname and split_ref(tname)[0] == m.prefix:
                 m.elements[name] = split_ref(tname)[1]
                 if e.get("abstract") == "true" and split_ref(tname)[1] in m.types:
-                    m.types[split_ref(tname)[1]].abstract = True       # abstract element: never instantiated
+                    m.types[split_ref(tname)[1]].abstract = True  # abstract element: never instantiated
             if "_GenericApplicationPropertyOf" in sg:
                 h = Hook(name, sg.split("_GenericApplicationPropertyOf")[1], None, m)
                 h.prefix = sg.split(":")[0]
@@ -524,7 +622,10 @@ class Spec:
             if fn.endswith(".java"):
                 m.jaxb_classes.add(fn[:-5])
         src = open(os.path.join(m.jaxb_dir, "ObjectFactory.java"), encoding="utf-8").read()
-        for mm in re.finditer(r'@XmlElementDecl\(namespace = "[^"]*", name = "([^"]+)"[^)]*\)\s*public JAXBElement<[^>]+> (create\w+)\(', src):
+        for mm in re.finditer(
+            r'@XmlElementDecl\(namespace = "[^"]*", name = "([^"]+)"[^)]*\)\s*public JAXBElement<[^>]+> (create\w+)\(',
+            src,
+        ):
             m.factory[mm.group(1)] = mm.group(2)
 
     def jaxb_properties(self, t):
@@ -536,8 +637,14 @@ class Spec:
             if getter.startswith("isSet"):
                 continue
             prop = getter[3:] if getter.startswith("get") else getter[2:]
-            props[norm(prop)] = JaxbProperty(getter, None, jtype, jtype.startswith("List<"),
-                                             jtype.startswith("JAXBElement<"), jtype in ("double", "boolean", "int", "long"))
+            props[norm(prop)] = JaxbProperty(
+                getter,
+                None,
+                jtype,
+                jtype.startswith("List<"),
+                jtype.startswith("JAXBElement<"),
+                jtype in ("double", "boolean", "int", "long"),
+            )
         for m in re.finditer(r"public void (set[A-Z_]\w*)\(([\w.<>?, ]+?) value\)", src):
             prop = m.group(1)[3:]
             if norm(prop) in props:
@@ -599,7 +706,7 @@ class Spec:
                 if m is not None and el in m.elements:
                     t.prop_target = m.types[m.elements[el]]
                 else:
-                    t.foreign_target = t.prop_target       # e.g. core:_CityObject
+                    t.foreign_target = t.prop_target  # e.g. core:_CityObject
                     t.prop_target = None
                 props = self.jaxb_properties(t)
                 jp = props.get(norm(el))
@@ -638,7 +745,7 @@ class Spec:
                     f.enum_values = f.target.values
                     f.kind, f.target = "string", None
                 if f.kind == "inline" and f.target is t:
-                    f.kind = "unsupported"          # a type nested in itself (uro 2.0/3.0 ControlPoint.parameter)
+                    f.kind = "unsupported"  # a type nested in itself (uro 2.0/3.0 ControlPoint.parameter)
             t.dropped = [f for f in t.fields if f.kind == "unsupported"]
             t.fields = [f for f in t.fields if f.kind != "unsupported"]
             t.mapping = t.module.mapping_types.get(t.mapping_path)
@@ -719,7 +826,11 @@ class Spec:
         names = {t.qname for t in types}
         out = OrderedDict()
         for h in self.hooks if hooks is None else hooks:
-            if h.prop_type is not None and h.prop_type.prop_target is not None and h.prop_type.prop_target.qname in names:
+            if (
+                h.prop_type is not None
+                and h.prop_type.prop_target is not None
+                and h.prop_type.prop_target.qname in names
+            ):
                 out[h.prop_type.qname] = h.prop_type
         for t in types:
             for f in t.fields:
@@ -733,6 +844,12 @@ def modules_for(cg4j_repo, prefixes, version):
     out = []
     for prefix in prefixes:
         pkg = "jp.geospatial.iur._%s.%s" % (version.replace(".", "_"), prefix)
-        out.append(Module(prefix, os.path.join(cg4j_repo, "resources", "ade-xjc", "schemas", XSD_FILES[prefix]), pkg,
-                          os.path.join(cg4j_repo, "src-gen", "main", "java", *pkg.split("."))))
+        out.append(
+            Module(
+                prefix,
+                os.path.join(cg4j_repo, "resources", "ade-xjc", "schemas", XSD_FILES[prefix]),
+                pkg,
+                os.path.join(cg4j_repo, "src-gen", "main", "java", *pkg.split(".")),
+            )
+        )
     return out

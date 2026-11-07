@@ -127,9 +127,7 @@ def test_missing_and_extra_city_objects(tmp_path: Path, capsys: pytest.CaptureFi
     assert compare.main([b, a, "--subset"]) == 0
 
 
-def test_db_neutralises_the_importer_exporter_differences(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_db_neutralises_the_importer_exporter_differences(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     exported = (
         CREATION_DATE.replace("2026-01-01", "2026-11-07")
         + ENVELOPE.replace('srsName="EPSG:6697"', 'srsName="urn:ogc:def:crs:EPSG::6697" srsDimension="3"')

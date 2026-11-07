@@ -1,2 +1,2 @@
 rootProject.name = 'roundtrip'
-includeBuild '../../iur-ade-citygml4j'
+includeBuild '../../../iur-ade-citygml4j'

@@ -4,6 +4,7 @@ Usage: gen_citygml4j.py <citygml4j repo> <citydb repo> <version> <preset: all|ph
 
 The generated code follows the style of the hand-written iur-ade classes (see gen_uro_model notes in poc/README).
 """
+
 import os
 import re
 import sys
@@ -13,7 +14,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from . import urospec
 from .urospec import cap, uncap
 
-JAVA_KEYWORDS = {"class", "default", "package", "new", "public", "private", "static", "final", "import", "switch", "case"}
+JAVA_KEYWORDS = {
+    "class",
+    "default",
+    "package",
+    "new",
+    "public",
+    "private",
+    "static",
+    "final",
+    "import",
+    "switch",
+    "case",
+}
 MODEL_FIELD_NAMES = {"class": "classifier"}
 FEATURE_FIELD_NAMES = urospec.FEATURE_FIELD_NAMES
 VISITORS = ("FeatureVisitor", "FeatureFunctor", "GMLVisitor", "GMLFunctor")
@@ -107,7 +120,7 @@ class Generator:
         self.hooks = [h for h in hooks if h.prop_type is not None]
         self.special = [h for h in hooks if h.prop_type is None and h.element in SPECIAL_HOOKS]
         self.features = spec.feature_types() if features else []
-        self.feature_hooks = []      # feature-typed hooks (uro 3.2 pointCloud), not supported yet
+        self.feature_hooks = []  # feature-typed hooks (uro 3.2 pointCloud), not supported yet
         self.types = spec.closure(self.hooks, self.features)
         self.items = self._order()
         self.enums = OrderedDict()
@@ -120,8 +133,10 @@ class Generator:
             for f in t.dropped:
                 print("dropped unsupported field %s.%s (%s)" % (t.model, f.name, f.xsd_type), file=sys.stderr)
         self.src = os.path.join(repo, "src", "main", "java", "org", "citygml4j", "ade", "iur")
-        header_src = open(os.path.join(self.src, "model", "uro", "FiscalYearOfPublicationProperty.java"), encoding="utf-8").read()
-        self.header = header_src[:header_src.index("*/") + 2]
+        header_src = open(
+            os.path.join(self.src, "model", "uro", "FiscalYearOfPublicationProperty.java"), encoding="utf-8"
+        ).read()
+        self.header = header_src[: header_src.index("*/") + 2]
         self.written = set()
 
     def model_dir(self, module):
@@ -147,7 +162,7 @@ class Generator:
             if p.prop_target is not None:
                 prop_of[p.prop_target.qname] = p
             else:
-                refs.append(p)          # city object references (urf:target)
+                refs.append(p)  # city object references (urf:target)
 
         def visit(t):
             if t.qname in done:
@@ -179,7 +194,9 @@ class Generator:
             self.gen_feature_type(t)
         for p in self.spec.property_types(self.types + self.features):
             if p.prop_target is None:
-                self.gen_feature_property_type(p, "AbstractCityObject", "org.citygml4j.model.citygml.core.AbstractCityObject")
+                self.gen_feature_property_type(
+                    p, "AbstractCityObject", "org.citygml4j.model.citygml.core.AbstractCityObject"
+                )
             elif p.prop_target.is_feature:
                 self.gen_feature_property_type(p, p.prop_target.model)
             else:
@@ -260,7 +277,11 @@ class Generator:
 {super_copy}        return ObjectCopier.copyTo(this, copy, {name}.class, copyBuilder);
     }}
 """
-        copier = f"ObjectCopier.copyTo(this, copy, {name}.class, copyBuilder)" if t.subtypes else "ObjectCopier.copyTo(this, copy, copyBuilder)"
+        copier = (
+            f"ObjectCopier.copyTo(this, copy, {name}.class, copyBuilder)"
+            if t.subtypes
+            else "ObjectCopier.copyTo(this, copy, copyBuilder)"
+        )
         return f"""    @Override
     public Object copyTo(Object target, CopyBuilder copyBuilder) {{
         {name} copy = target == null ? new {name}() : ({name}) target;
@@ -283,7 +304,11 @@ class Generator:
         if root:
             imports |= {core_model, IMPORTS["ADEModelObject"]}
         fields, methods = self.accessors(t, imports)
-        lods = [f for f in t.fields if f.lod is not None and f.kind in ("geometry", "multiSurface", "multiCurve", "multiPoint")]
+        lods = [
+            f
+            for f in t.fields
+            if f.lod is not None and f.kind in ("geometry", "multiSurface", "multiCurve", "multiPoint")
+        ]
         visitable = root and t.core_base in urospec.ABSTRACT_FEATURE_BASES
         if visitable:
             methods.append("""    @Override
@@ -331,7 +356,9 @@ class Generator:
             imports |= {IMPORTS[k] for k in VISITORS}
         body = "\n".join(parts)
         imports |= infer_imports("".join(fields))
-        self.out(os.path.join(self.model_dir(t.module), name + ".java"), f"""{self.header}
+        self.out(
+            os.path.join(self.model_dir(t.module), name + ".java"),
+            f"""{self.header}
 
 package {t.module.model_pkg};
 
@@ -339,13 +366,19 @@ package {t.module.model_pkg};
 
 public {"abstract " if t.abstract else ""}class {name} extends {base}{" implements ADEModelObject" if root else ""} {{
 {body}}}
-""")
+""",
+        )
 
     def gen_feature_property_type(self, p, target, target_import=None):
         name = p.model
-        imports = ["org.citygml4j.builder.copy.CopyBuilder", "org.citygml4j.model.citygml.ade.binding.ADEModelObject",
-                   "org.citygml4j.model.gml.feature.FeatureProperty"] + ([target_import] if target_import else [])
-        self.out(os.path.join(self.model_dir(p.module), name + ".java"), f"""{self.header}
+        imports = [
+            "org.citygml4j.builder.copy.CopyBuilder",
+            "org.citygml4j.model.citygml.ade.binding.ADEModelObject",
+            "org.citygml4j.model.gml.feature.FeatureProperty",
+        ] + ([target_import] if target_import else [])
+        self.out(
+            os.path.join(self.model_dir(p.module), name + ".java"),
+            f"""{self.header}
 
 package {p.module.model_pkg};
 
@@ -381,7 +414,8 @@ public class {name} extends FeatureProperty<{target}> implements ADEModelObject 
         return super.copyTo(copy, copyBuilder);
     }}
 }}
-""")
+""",
+        )
 
     def gen_data_type(self, t):
         name = t.model
@@ -399,7 +433,9 @@ public class {name} extends FeatureProperty<{target}> implements ADEModelObject 
         imports |= infer_imports("".join(fields))
         if t.base is not None and t.base.module is not t.module:
             imports.add(f"{t.base.module.model_pkg}.{t.base.model}")
-        self.out(os.path.join(self.model_dir(t.module), name + ".java"), f"""{self.header}
+        self.out(
+            os.path.join(self.model_dir(t.module), name + ".java"),
+            f"""{self.header}
 
 package {t.module.model_pkg};
 
@@ -407,11 +443,14 @@ package {t.module.model_pkg};
 
 public {"abstract " if t.abstract else ""}class {name} extends {base} {{
 {body}}}
-""")
+""",
+        )
 
     def gen_property_type(self, p):
         name, target = p.model, p.prop_target.model
-        self.out(os.path.join(self.model_dir(p.module), name + ".java"), f"""{self.header}
+        self.out(
+            os.path.join(self.model_dir(p.module), name + ".java"),
+            f"""{self.header}
 
 package {p.module.model_pkg};
 
@@ -445,11 +484,14 @@ public class {name} extends AssociationByRep<{target}> implements ADEModelObject
         return super.copyTo(copy, copyBuilder);
     }}
 }}
-""")
+""",
+        )
 
     def gen_property_element(self, h):
         name, value = h.model_element, h.prop_type.model
-        self.out(os.path.join(self.model_dir(h.module), name + ".java"), f"""{self.header}
+        self.out(
+            os.path.join(self.model_dir(h.module), name + ".java"),
+            f"""{self.header}
 
 package {h.module.model_pkg};
 
@@ -471,11 +513,16 @@ public class {name} extends ADEGenericApplicationProperty<{value}> {{
         return copyTo(new {name}(), copyBuilder);
     }}
 }}
-""")
+""",
+        )
 
     def gen_enum(self, e):
-        consts = ",\n".join('    %s("%s")' % (re.sub(r"^(?=[0-9])", "_", re.sub(r"[^A-Za-z0-9_]", "_", v).upper()), v) for v in e.values)
-        self.out(os.path.join(self.model_dir(e.module), e.model + ".java"), f"""{self.header}
+        consts = ",\n".join(
+            '    %s("%s")' % (re.sub(r"^(?=[0-9])", "_", re.sub(r"[^A-Za-z0-9_]", "_", v).upper()), v) for v in e.values
+        )
+        self.out(
+            os.path.join(self.model_dir(e.module), e.model + ".java"),
+            f"""{self.header}
 
 package {e.module.model_pkg};
 
@@ -506,7 +553,8 @@ public enum {e.model} {{
         return value;
     }}
 }}
-""")
+""",
+        )
 
     # ------------------------------------------------------------- marshaller
     def jaxb_enum(self, e):
@@ -536,12 +584,16 @@ public enum {e.model} {{
             var = model_field(f)
             elem = f.model_type[5:-1]
             conv = {
-                "string": var, "code": "helper.getGMLMarshaller().marshalCode(%s)" % var,
+                "string": var,
+                "code": "helper.getGMLMarshaller().marshalCode(%s)" % var,
                 "measure": "helper.getGMLMarshaller().marshalMeasure(%s)" % var,
                 "length": "helper.getGMLMarshaller().marshalLength(%s)" % var,
-                "date": "marshaller.toCalendar(%s)" % var, "year": "marshaller.toCalendar(%s)" % var,
+                "date": "marshaller.toCalendar(%s)" % var,
+                "year": "marshaller.toCalendar(%s)" % var,
                 "yearMonth": "marshaller.toCalendar(%s)" % var,
-                "integer": "BigInteger.valueOf(%s)" % var, "double": var, "boolean": var,
+                "integer": "BigInteger.valueOf(%s)" % var,
+                "double": var,
+                "boolean": var,
                 "enum": "%s.fromValue(%s.value())" % (self.jaxb_enum(f.target) if f.kind == "enum" else "", var),
                 "property": "marshal%s(%s)" % (f.target.model if f.target else "", var),
                 "inline": "marshal%s(%s)" % (f.target.model if f.target else "", var),
@@ -568,7 +620,9 @@ public enum {e.model} {{
             m = {"code": "marshalCode", "measure": "marshalMeasure", "length": "marshalLength"}[k]
             return f"        if ({g} != null)\n            {setter}(helper.getGMLMarshaller().{m}({g}));\n"
         if k == "enum":
-            return f"        if ({g} != null)\n            {setter}({self.jaxb_enum(f.target)}.fromValue({g}.value()));\n"
+            return (
+                f"        if ({g} != null)\n            {setter}({self.jaxb_enum(f.target)}.fromValue({g}.value()));\n"
+            )
         if k == "doubleList":
             var = model_field(f)
             return f"        for (Double {var} : {g})\n            dest.{j.getter}().add({var});\n"
@@ -585,7 +639,9 @@ public enum {e.model} {{
         if k == "address":
             return f"        if ({g} != null)\n            {setter}(helper.getCore200Marshaller().marshalAddressProperty({g}));\n"
         if k == "stringOrRef":
-            return f"        if ({g} != null)\n            {setter}(helper.getGMLMarshaller().marshalStringOrRef({g}));\n"
+            return (
+                f"        if ({g} != null)\n            {setter}(helper.getGMLMarshaller().marshalStringOrRef({g}));\n"
+            )
         if k in ("multiSurface", "multiCurve", "multiPoint"):
             return f"        if ({g} != null)\n            {setter}(helper.getGMLMarshaller().marshal{cap(k)}Property({g}));\n"
         if k == "directPosition":
@@ -602,19 +658,32 @@ public enum {e.model} {{
             var = model_field(f)
             jelem = j.java_type[5:-1]
             conv = {
-                "string": var, "code": "helper.getGMLUnmarshaller().unmarshalCode(%s)" % var,
+                "string": var,
+                "code": "helper.getGMLUnmarshaller().unmarshalCode(%s)" % var,
                 "measure": "helper.getGMLUnmarshaller().unmarshalMeasure(%s)" % var,
                 "length": "helper.getGMLUnmarshaller().unmarshalLength(%s)" % var,
                 "date": "%s.toGregorianCalendar().toZonedDateTime().toLocalDate()" % var,
-                "year": "Year.of(%s.getYear())" % var, "yearMonth": "YearMonth.of(%s.getYear(), %s.getMonth())" % (var, var),
-                "integer": "%s.intValue()" % var, "double": var, "boolean": var,
-                "enum": "%s.%s.fromValue(%s.value())" % (f.target.module.model_pkg if f.kind == "enum" else "", f.target.model if f.kind == "enum" else "", var),
+                "year": "Year.of(%s.getYear())" % var,
+                "yearMonth": "YearMonth.of(%s.getYear(), %s.getMonth())" % (var, var),
+                "integer": "%s.intValue()" % var,
+                "double": var,
+                "boolean": var,
+                "enum": "%s.%s.fromValue(%s.value())"
+                % (
+                    f.target.module.model_pkg if f.kind == "enum" else "",
+                    f.target.model if f.kind == "enum" else "",
+                    var,
+                ),
                 "property": "unmarshal%s(%s)" % (f.target.model if f.target else "", var),
                 "inline": "unmarshal%s(%s)" % (f.target.model if f.target else "", var),
                 "cityObjectRef": "unmarshal%s(%s)" % (f.target.model if f.target else "", var),
             }[k]
             if k in ("property", "inline") and f.foreign:
-                conv = "(%s.%s) helper.getJAXBUnmarshaller().unmarshal(%s)" % (f.target.module.model_pkg, f.target.model, var)
+                conv = "(%s.%s) helper.getJAXBUnmarshaller().unmarshal(%s)" % (
+                    f.target.module.model_pkg,
+                    f.target.model,
+                    var,
+                )
                 jelem = self.jaxb_fqn(f.target)
             return f"        if (src.{j.is_set}()) {{\n            for ({jelem} {var} : {g})\n                {adder}({conv});\n        }}\n"
         if k == "string":
@@ -630,11 +699,15 @@ public enum {e.model} {{
         if k == "date":
             return f"        if (src.{j.is_set}())\n            {s}({g}.toGregorianCalendar().toZonedDateTime().toLocalDate());\n"
         if k == "year":
-            return (f"        if (src.{j.is_set}()) {{\n            LocalDate date = {g}.toGregorianCalendar().toZonedDateTime().toLocalDate();\n"
-                    f"            {s}(Year.of(date.getYear()));\n        }}\n")
+            return (
+                f"        if (src.{j.is_set}()) {{\n            LocalDate date = {g}.toGregorianCalendar().toZonedDateTime().toLocalDate();\n"
+                f"            {s}(Year.of(date.getYear()));\n        }}\n"
+            )
         if k == "yearMonth":
-            return (f"        if (src.{j.is_set}()) {{\n            LocalDate date = {g}.toGregorianCalendar().toZonedDateTime().toLocalDate();\n"
-                    f"            {s}(YearMonth.of(date.getYear(), date.getMonthValue()));\n        }}\n")
+            return (
+                f"        if (src.{j.is_set}()) {{\n            LocalDate date = {g}.toGregorianCalendar().toZonedDateTime().toLocalDate();\n"
+                f"            {s}(YearMonth.of(date.getYear(), date.getMonthValue()));\n        }}\n"
+            )
         if k in ("code", "measure", "length"):
             m = {"code": "unmarshalCode", "measure": "unmarshalMeasure", "length": "unmarshalLength"}[k]
             return f"        if (src.{j.is_set}())\n            {s}(helper.getGMLUnmarshaller().{m}({g}));\n"
@@ -644,8 +717,10 @@ public enum {e.model} {{
             var = model_field(f)
             return f"        if (src.{j.is_set}()) {{\n            for (Double {var} : {g})\n                {adder}({var});\n        }}\n"
         if k in ("property", "inline") and f.foreign:
-            return (f"        if (src.{j.is_set}())\n            {s}(({f.target.module.model_pkg}.{f.target.model}) "
-                    f"helper.getJAXBUnmarshaller().unmarshal({g}));\n")
+            return (
+                f"        if (src.{j.is_set}())\n            {s}(({f.target.module.model_pkg}.{f.target.model}) "
+                f"helper.getJAXBUnmarshaller().unmarshal({g}));\n"
+            )
         if k in ("property", "inline", "cityObjectRef"):
             return f"        if (src.{j.is_set}())\n            {s}(unmarshal{f.target.model}({g}));\n"
         if k == "geometry":
@@ -692,7 +767,11 @@ public enum {e.model} {{
         out = []
         if t.is_feature:
             # feature types always delegate to their base: the citygml4j marshaller of the CityGML base type at the root
-            base_call = f"        marshal{t.base.model}(src, dest);\n" if t.base else f"        helper.{t.feature_base[2]}(src, dest);\n"
+            base_call = (
+                f"        marshal{t.base.model}(src, dest);\n"
+                if t.base
+                else f"        helper.{t.feature_base[2]}(src, dest);\n"
+            )
             with_dest = t.abstract or t.subtypes
         else:
             base_call = f"        marshal{t.base.model}(src, dest);\n" if t.base and t.base.all_fields() else ""
@@ -709,17 +788,19 @@ public enum {e.model} {{
 
     def marshal_property_method(self, p):
         name, jt, target = p.model, self.jaxb_ref(p), p.prop_target
-        if target is None:          # city object reference (core:_CityObject)
+        if target is None:  # city object reference (core:_CityObject)
             jp = self.spec.jaxb_properties(p)[urospec.norm(urospec.split_ref(p.foreign_target)[1])]
             target_jaxb, feature = "AbstractCityObjectType", True
         else:
             jp = self.spec.jaxb_properties(p)[urospec.norm(target.element)]
             target_jaxb, feature = self.jaxb_ref(target), target.is_feature
         if p.polymorphic:
-            body = (f"        if (src.getObject() != null) {{\n"
-                    f"            JAXBElement<?> elem = helper.getJAXBMarshaller().marshalJAXBElement(src.getObject());\n"
-                    f"            if (elem != null && elem.getValue() instanceof {target_jaxb})\n"
-                    f"                dest.{jp.setter}((JAXBElement<? extends {target_jaxb}>) elem);\n        }}\n")
+            body = (
+                f"        if (src.getObject() != null) {{\n"
+                f"            JAXBElement<?> elem = helper.getJAXBMarshaller().marshalJAXBElement(src.getObject());\n"
+                f"            if (elem != null && elem.getValue() instanceof {target_jaxb})\n"
+                f"                dest.{jp.setter}((JAXBElement<? extends {target_jaxb}>) elem);\n        }}\n"
+            )
         else:
             body = f"        if (src.isSetObject())\n            dest.{jp.setter}(marshal{target.model}(src.getObject()));\n"
         if feature:
@@ -747,14 +828,20 @@ public enum {e.model} {{
         fields = self.join(self.unmarshal_field(f) for f in t.fields)
         out = []
         if t.is_feature:
-            base_call = f"        unmarshal{t.base.model}(src, dest);\n" if t.base else f"        helper.{t.feature_base[3]}(src, dest);\n"
+            base_call = (
+                f"        unmarshal{t.base.model}(src, dest);\n"
+                if t.base
+                else f"        helper.{t.feature_base[3]}(src, dest);\n"
+            )
             with_dest = t.abstract or t.subtypes
         else:
             base_call = f"        unmarshal{t.base.model}(src, dest);\n" if t.base and t.base.all_fields() else ""
             with_dest = (t.abstract or t.subtypes) and t.all_fields()
         if with_dest:
             body = self.join([base_call, fields])
-            out.append(f"    private void unmarshal{name}({jt} src, {name} dest) throws MissingADESchemaException {{\n{body}    }}\n")
+            out.append(
+                f"    private void unmarshal{name}({jt} src, {name} dest) throws MissingADESchemaException {{\n{body}    }}\n"
+            )
         if not t.abstract:
             head = f"    private {name} unmarshal{name}({jt} src) throws MissingADESchemaException {{\n        {name} dest = new {name}();\n"
             if with_dest:
@@ -764,17 +851,19 @@ public enum {e.model} {{
 
     def unmarshal_property_method(self, p):
         name, jt, target = p.model, self.jaxb_ref(p), p.prop_target
-        if target is None:          # city object reference (core:_CityObject)
+        if target is None:  # city object reference (core:_CityObject)
             jp = self.spec.jaxb_properties(p)[urospec.norm(urospec.split_ref(p.foreign_target)[1])]
             target_model, feature = "AbstractCityObject", True
         else:
             jp = self.spec.jaxb_properties(p)[urospec.norm(target.element)]
             target_model, feature = target.model, target.is_feature
         if p.polymorphic:
-            body = (f"        if (src.{jp.is_set}()) {{\n"
-                    f"            ModelObject object = helper.getJAXBUnmarshaller().unmarshal(src.{jp.getter}());\n"
-                    f"            if (object instanceof {target_model})\n"
-                    f"                dest.setObject(({target_model}) object);\n        }}\n")
+            body = (
+                f"        if (src.{jp.is_set}()) {{\n"
+                f"            ModelObject object = helper.getJAXBUnmarshaller().unmarshal(src.{jp.getter}());\n"
+                f"            if (object instanceof {target_model})\n"
+                f"                dest.setObject(({target_model}) object);\n        }}\n"
+            )
         else:
             body = f"        if (src.{jp.is_set}())\n            dest.setObject(unmarshal{target.model}(src.{jp.getter}()));\n"
         if feature:
@@ -808,29 +897,57 @@ public enum {e.model} {{
                     type_entries.append(f"                    .with({item.model}.class, this::marshal{item.model})")
                 if not item.abstract and item.element:
                     element_entries.append(f"                    .with({item.model}.class, this::create{item.model})")
-                    creates.append(f"    private JAXBElement<?> create{item.model}({item.model} src) {{\n"
-                                   f"        return factory.{module.factory[item.element]}(marshal{item.model}(src));\n    }}\n")
+                    creates.append(
+                        f"    private JAXBElement<?> create{item.model}({item.model} src) {{\n"
+                        f"        return factory.{module.factory[item.element]}(marshal{item.model}(src));\n    }}\n"
+                    )
                 methods.extend(self.marshal_type_methods(item))
         for h in [x for x in self.hooks if x.module is module]:
             el = h.model_element
             element_entries.append(f"                    .with({el}.class, this::create{el})")
-            creates.append(f"    private JAXBElement<?> create{el}({el} src) {{\n"
-                           f"        return factory.{module.factory[h.element]}(marshal{h.prop_type.model}(src.getValue()));\n    }}\n")
+            creates.append(
+                f"    private JAXBElement<?> create{el}({el} src) {{\n"
+                f"        return factory.{module.factory[h.element]}(marshal{h.prop_type.model}(src.getValue()));\n    }}\n"
+            )
         for h in [x for x in self.special if x.module is module]:
             cls = SPECIAL_HOOKS[h.element]
             element_entries.append(f"                    .with({cls}.class, this::create{cls})")
             if h.element == "fiscalYearOfPublication":
-                creates.append(f"    private JAXBElement<?> create{cls}({cls} src) {{\n        return factory.{module.factory[h.element]}(marshaller.toCalendar(src.getValue()));\n    }}\n")
+                creates.append(
+                    f"    private JAXBElement<?> create{cls}({cls} src) {{\n        return factory.{module.factory[h.element]}(marshaller.toCalendar(src.getValue()));\n    }}\n"
+                )
             else:
-                creates.append(f"    private JAXBElement<?> create{cls}({cls} src) {{\n        return factory.{module.factory[h.element]}(helper.getGMLMarshaller().marshalCode(src.getValue()));\n    }}\n")
+                creates.append(
+                    f"    private JAXBElement<?> create{cls}({cls} src) {{\n        return factory.{module.factory[h.element]}(helper.getGMLMarshaller().marshalCode(src.getValue()));\n    }}\n"
+                )
 
         body = "\n".join(methods + creates)
-        imports = {"org.citygml4j.ade.iur.bind.Marshaller", module.model_pkg + ".*", module.jaxb_pkg + ".*",
-                   "org.citygml4j.builder.jaxb.marshal.citygml.ade.ADEMarshallerHelper",
-                   "org.citygml4j.model.citygml.ade.binding.ADEMarshaller", "org.citygml4j.model.citygml.ade.binding.ADEModelObject",
-                   "org.citygml4j.util.mapper.TypeMapper", "javax.xml.bind.JAXBElement"}
-        imports |= {IMPORTS[k] for k in ("Code", "Measure", "Length", "LocalDate", "Year", "YearMonth", "BigInteger", "TypeType", "ShowType", "ActuateType")
-                    if re.search(r"\b%s\b" % k, body)}
+        imports = {
+            "org.citygml4j.ade.iur.bind.Marshaller",
+            module.model_pkg + ".*",
+            module.jaxb_pkg + ".*",
+            "org.citygml4j.builder.jaxb.marshal.citygml.ade.ADEMarshallerHelper",
+            "org.citygml4j.model.citygml.ade.binding.ADEMarshaller",
+            "org.citygml4j.model.citygml.ade.binding.ADEModelObject",
+            "org.citygml4j.util.mapper.TypeMapper",
+            "javax.xml.bind.JAXBElement",
+        }
+        imports |= {
+            IMPORTS[k]
+            for k in (
+                "Code",
+                "Measure",
+                "Length",
+                "LocalDate",
+                "Year",
+                "YearMonth",
+                "BigInteger",
+                "TypeType",
+                "ShowType",
+                "ActuateType",
+            )
+            if re.search(r"\b%s\b" % k, body)
+        }
         if "AbstractCityObjectType" in body:
             imports.add("net.opengis.citygml._2.AbstractCityObjectType")
         imports |= {module.model_pkg + "." + m for m in self.clashing_models(module)}
@@ -894,32 +1011,63 @@ public class {module.marshaller} implements ADEMarshaller {{
         type_entries, cases, methods = [], [], []
         for item in [i for i in self.items if i.module is module]:
             if item.is_property:
-                type_entries.append(f"                    .with({self.jaxb_ref(item)}.class, this::unmarshal{item.model})")
+                type_entries.append(
+                    f"                    .with({self.jaxb_ref(item)}.class, this::unmarshal{item.model})"
+                )
                 methods.append(self.unmarshal_property_method(item))
             else:
                 if not item.abstract:
-                    type_entries.append(f"                    .with({self.jaxb_ref(item)}.class, this::unmarshal{item.model})")
+                    type_entries.append(
+                        f"                    .with({self.jaxb_ref(item)}.class, this::unmarshal{item.model})"
+                    )
                 methods.extend(self.unmarshal_type_methods(item))
         for h in [x for x in self.hooks if x.module is module]:
             p = h.prop_type
-            cases.append(f'            case "{h.element}":\n                return new {h.model_element}(unmarshal{p.model}(({self.jaxb_ref(p)}) value));')
+            cases.append(
+                f'            case "{h.element}":\n                return new {h.model_element}(unmarshal{p.model}(({self.jaxb_ref(p)}) value));'
+            )
         for h in [x for x in self.special if x.module is module]:
             if h.element == "fiscalYearOfPublication":
-                cases.append('            case "fiscalYearOfPublication":\n'
-                             '                LocalDate fiscalYearOfPublication = ((XMLGregorianCalendar) value).toGregorianCalendar().toZonedDateTime().toLocalDate();\n'
-                             '                return new FiscalYearOfPublicationProperty(Year.of(fiscalYearOfPublication.getYear()));')
+                cases.append(
+                    '            case "fiscalYearOfPublication":\n'
+                    "                LocalDate fiscalYearOfPublication = ((XMLGregorianCalendar) value).toGregorianCalendar().toZonedDateTime().toLocalDate();\n"
+                    "                return new FiscalYearOfPublicationProperty(Year.of(fiscalYearOfPublication.getYear()));"
+                )
             else:
-                cases.append('            case "language":\n                return new LanguageProperty(helper.getGMLUnmarshaller().unmarshalCode((CodeType) value));')
+                cases.append(
+                    '            case "language":\n                return new LanguageProperty(helper.getGMLUnmarshaller().unmarshalCode((CodeType) value));'
+                )
 
         body = "\n".join(methods)
-        imports = {module.model_pkg + ".*", module.jaxb_pkg + ".*",
-                   "org.citygml4j.builder.jaxb.unmarshal.citygml.ade.ADEUnmarshallerHelper",
-                   "org.citygml4j.model.citygml.ade.binding.ADEModelObject", "org.citygml4j.model.citygml.ade.binding.ADEUnmarshaller",
-                   "org.citygml4j.util.mapper.CheckedTypeMapper", "org.citygml4j.xml.io.reader.MissingADESchemaException",
-                   "javax.xml.bind.JAXBElement"}
+        imports = {
+            module.model_pkg + ".*",
+            module.jaxb_pkg + ".*",
+            "org.citygml4j.builder.jaxb.unmarshal.citygml.ade.ADEUnmarshallerHelper",
+            "org.citygml4j.model.citygml.ade.binding.ADEModelObject",
+            "org.citygml4j.model.citygml.ade.binding.ADEUnmarshaller",
+            "org.citygml4j.util.mapper.CheckedTypeMapper",
+            "org.citygml4j.xml.io.reader.MissingADESchemaException",
+            "javax.xml.bind.JAXBElement",
+        }
         all_text = body + "\n".join(cases)
-        imports |= {IMPORTS[k] for k in ("CodeType", "MeasureType", "LengthType", "BigInteger", "LocalDate", "Year", "YearMonth", "XMLGregorianCalendar", "ModelObject", "XLinkType", "XLinkShow", "XLinkActuate")
-                    if re.search(r"\b%s\b" % k, all_text)}
+        imports |= {
+            IMPORTS[k]
+            for k in (
+                "CodeType",
+                "MeasureType",
+                "LengthType",
+                "BigInteger",
+                "LocalDate",
+                "Year",
+                "YearMonth",
+                "XMLGregorianCalendar",
+                "ModelObject",
+                "XLinkType",
+                "XLinkShow",
+                "XLinkActuate",
+            )
+            if re.search(r"\b%s\b" % k, all_text)
+        }
         if "AbstractCityObject)" in body or "instanceof AbstractCityObject" in body:
             imports.add("org.citygml4j.model.citygml.core.AbstractCityObject")
         imports |= {module.model_pkg + "." + m for m in self.clashing_models(module)}
@@ -977,17 +1125,28 @@ public class {module.unmarshaller} implements ADEUnmarshaller {{
         core = t.feature_base[0].rsplit(".", 1)[1]
         if t.base is not None:
             if function:
-                return f"    public T apply({t.model} {var}) {{\n        return apply(({t.base.model}) {var});\n    }}\n"
+                return (
+                    f"    public T apply({t.model} {var}) {{\n        return apply(({t.base.model}) {var});\n    }}\n"
+                )
             return f"    public void visit({t.model} {var}) {{\n        visit(({t.base.model}) {var});\n    }}\n"
         steps = []
         for f in t.fields:
             g = f"{var}.get{cap(model_field(f))}()"
             if f.is_feature_property:
                 if f.multi:
-                    steps.append(("loop", f"for ({f.target.model} property : new ArrayList<>({g}))", "(FeatureProperty<?>) property"))
+                    steps.append(
+                        (
+                            "loop",
+                            f"for ({f.target.model} property : new ArrayList<>({g}))",
+                            "(FeatureProperty<?>) property",
+                        )
+                    )
                 else:
                     steps.append(("if", f"if ({g} != null)", f"(FeatureProperty<?>) {g}"))
-            elif f.kind in ("geometry", "multiSurface", "multiCurve", "multiPoint", "point", "complex") and self.walker_geometry:
+            elif (
+                f.kind in ("geometry", "multiSurface", "multiCurve", "multiPoint", "point", "complex")
+                and self.walker_geometry
+            ):
                 steps.append(("if", f"if ({g} != null)", g))
         if function:
             body = f"        T object = walker.apply(({core}) {var});\n        if (object != null)\n            return object;\n"
@@ -1009,19 +1168,33 @@ public class {module.unmarshaller} implements ADEUnmarshaller {{
         walkable = [t for t in self.features if t.root().core_base in urospec.ABSTRACT_FEATURE_BASES]
         pkgs = [m.model_pkg for m in self.modules]
         remove = set(stale_classes) | {t.model for t in walkable}
-        for cls, function, geometry in (("FeatureWalker", False, False), ("GMLWalker", False, True),
-                                        ("FeatureFunctionWalker", True, False), ("GMLFunctionWalker", True, True)):
+        for cls, function, geometry in (
+            ("FeatureWalker", False, False),
+            ("GMLWalker", False, True),
+            ("FeatureFunctionWalker", True, False),
+            ("GMLFunctionWalker", True, True),
+        ):
             self.walker_geometry = geometry
             p = os.path.join(self.src, "walker", cls + ".java")
             s = open(p, encoding="utf-8").read()
             if marker in s:
-                s = s[:s.index(marker)].rstrip("\n") + "\n}\n"
+                s = s[: s.index(marker)].rstrip("\n") + "\n}\n"
             for c in remove:
-                s = re.sub(r"\n    public (?:void visit|T apply)\(%s \w+\) \{\n.*?\n    \}\n" % re.escape(c), "\n", s, flags=re.S)
+                s = re.sub(
+                    r"\n    public (?:void visit|T apply)\(%s \w+\) \{\n.*?\n    \}\n" % re.escape(c),
+                    "\n",
+                    s,
+                    flags=re.S,
+                )
             s = re.sub(r"\n{3,}", "\n\n", s)
             methods = "\n".join(self.walker_methods(t, function) for t in walkable)
             imports = {f"{t.module.model_pkg}.{t.model}" for t in walkable}
-            imports |= {f"{f.target.module.model_pkg}.{f.target.model}" for t in walkable for f in t.fields if f.is_feature_property}
+            imports |= {
+                f"{f.target.module.model_pkg}.{f.target.model}"
+                for t in walkable
+                for f in t.fields
+                if f.is_feature_property
+            }
             imports |= {t.feature_base[0] for t in walkable}
             existing = re.findall(r"^import ([\w.*]+);", s, re.M)
             imports |= {i for i in existing if not any(i.startswith(pkg + ".") and not i.endswith("*") for pkg in pkgs)}
@@ -1040,18 +1213,36 @@ public class {module.unmarshaller} implements ADEUnmarshaller {{
         features = [t for t in self.features if t.module is module]
         concrete = [t for t in features if not t.abstract]
         puts = "".join(f'        features.put("{t.element}", {t.model}.class);\n' for t in concrete)
-        props = sorted({f.name for t in features for f in t.fields if f.is_feature_property or f.kind == "cityObjectRef"}
-                       | {h.element for h in self.feature_hooks if h.module is module})
+        props = sorted(
+            {f.name for t in features for f in t.fields if f.is_feature_property or f.kind == "cityObjectRef"}
+            | {h.element for h in self.feature_hooks if h.module is module}
+        )
         top = sorted(t.element for t in concrete if t.top_level)
         prop_test = " || ".join(f'"{n}".equals(name)' for n in props) or "false"
         top_test = " || ".join(f'"{n}".equals(name)' for n in top) or "false"
         version, jaxb = module.version_const, module.jaxb_pkg
-        ctor = type("C", (), {"group": lambda self, i: (f'        super("{module.namespace}",\n                "{module.prefix}",\n'
-                                                       f'                "{module.schema_url}",\n                CityGMLVersion.v2_0_0);\n')})()
+        ctor = type(
+            "C",
+            (),
+            {
+                "group": lambda self, i: (
+                    f'        super("{module.namespace}",\n                "{module.prefix}",\n'
+                    f'                "{module.schema_url}",\n                CityGMLVersion.v2_0_0);\n'
+                )
+            },
+        )()
         imports = {f"{module.model_pkg}.{t.model}" for t in concrete}
-        imports |= {"org.citygml4j.model.gml.feature.AbstractFeature", "org.citygml4j.model.module.ade.ADEModule",
-                    "org.citygml4j.model.module.citygml.CityGMLVersion", "javax.xml.namespace.QName", "java.net.URL",
-                    "java.util.Collections", "java.util.HashMap", "java.util.List", "java.util.Map"}
+        imports |= {
+            "org.citygml4j.model.gml.feature.AbstractFeature",
+            "org.citygml4j.model.module.ade.ADEModule",
+            "org.citygml4j.model.module.citygml.CityGMLVersion",
+            "javax.xml.namespace.QName",
+            "java.net.URL",
+            "java.util.Collections",
+            "java.util.HashMap",
+            "java.util.List",
+            "java.util.Map",
+        }
         text = f"""{self.header}
 
 package org.citygml4j.ade.iur.model.module;
@@ -1122,7 +1313,11 @@ public class {module.module_class} extends ADEModule {{
 
     def patch_top_level(self):
         """Point the top-level Marshaller/Unmarshaller and the ADEContext at the module constants of the generated versions."""
-        for rel in (("bind", "Marshaller.java"), ("bind", "Unmarshaller.java"), ("UrbanRevitalizationADEContext.java",)):
+        for rel in (
+            ("bind", "Marshaller.java"),
+            ("bind", "Unmarshaller.java"),
+            ("UrbanRevitalizationADEContext.java",),
+        ):
             p = os.path.join(self.src, *rel)
             s = open(p, encoding="utf-8").read()
             for m in self.modules:
@@ -1131,8 +1326,11 @@ public class {module.module_class} extends ADEModule {{
                 # unmarshal(Object) receives JAXB objects (cross-module references such as urf:keyValuePairAttribute of a
                 # uro property type): dispatch by the JAXB package, not by the model package
                 a = s.index("public ADEModelObject unmarshal(Object src)")
-                s = s[:a] + re.sub(r"(\w+Module\.v\d_\d)\.getModelPackageName\(\)\.equals\(packageName\)",
-                                   r"\1.getJAXBPackageNames().contains(packageName)", s[a:])
+                s = s[:a] + re.sub(
+                    r"(\w+Module\.v\d_\d)\.getModelPackageName\(\)\.equals\(packageName\)",
+                    r"\1.getJAXBPackageNames().contains(packageName)",
+                    s[a:],
+                )
             write(p, s)
 
     def clean_stale(self):
@@ -1157,7 +1355,9 @@ public class {module.module_class} extends ADEModule {{
         s = s.replace("import java.time.Year;", "import java.time.Year;\nimport java.time.YearMonth;")
         s = s.rstrip()
         assert s.endswith("}")
-        s = s[:-1].rstrip("\n") + """
+        s = (
+            s[:-1].rstrip("\n")
+            + """
 
     public XMLGregorianCalendar toCalendar(YearMonth yearMonth) {
         return helper.getJAXBMarshaller().getDataTypeFactory()
@@ -1168,6 +1368,7 @@ public class {module.module_class} extends ADEModule {{
     }
 }
 """
+        )
         write(p, s)
 
 
@@ -1191,9 +1392,11 @@ def select_hooks(spec, preset):
 
 
 def load_spec(repo, citydb, version, prefixes):
-    return urospec.Spec(urospec.modules_for(repo, prefixes, version),
-                        os.path.join(citydb, "resources", "database", "schema-mapping", "schema-mapping.xml"),
-                        os.path.join(citydb, "resources", "database", "3dcitydb", "postgreSQL", "CREATE_ADE_DB.sql"))
+    return urospec.Spec(
+        urospec.modules_for(repo, prefixes, version),
+        os.path.join(citydb, "resources", "database", "schema-mapping", "schema-mapping.xml"),
+        os.path.join(citydb, "resources", "database", "3dcitydb", "postgreSQL", "CREATE_ADE_DB.sql"),
+    )
 
 
 def main():
@@ -1218,7 +1421,16 @@ def main():
         if any(t.module is m for t in gen.features) or m.prefix != "uro":
             gen.patch_module(m)
     gen.patch_top_level()
-    print("types:", len(gen.types), "features:", len(gen.features), "hooks:", len(gen.hooks), "enums:", [e.qname for e in gen.enums.values()])
+    print(
+        "types:",
+        len(gen.types),
+        "features:",
+        len(gen.features),
+        "hooks:",
+        len(gen.hooks),
+        "enums:",
+        [e.qname for e in gen.enums.values()],
+    )
 
 
 if __name__ == "__main__":

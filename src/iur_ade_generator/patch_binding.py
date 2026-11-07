@@ -11,6 +11,7 @@
 
 Usage: patch_binding.py <citygml4j repo or folder with binding.xjb and schemas/>
 """
+
 import io
 import os
 import re
@@ -27,8 +28,13 @@ NL = chr(10)
 
 def rename_block(type_name, element, indent="    "):
     node = "xs:complexType[@name='%s']//xs:element[@name='%s']" % (type_name, element)
-    return node, NL.join([indent + '<jaxb:bindings node="%s">' % node, indent + '  <jaxb:property name="%s"/>' % FEATURE_FIELD_NAMES[element],
-                          indent + '</jaxb:bindings>'])
+    return node, NL.join(
+        [
+            indent + '<jaxb:bindings node="%s">' % node,
+            indent + '  <jaxb:property name="%s"/>' % FEATURE_FIELD_NAMES[element],
+            indent + "</jaxb:bindings>",
+        ]
+    )
 
 
 def derived_type_renames(xsd_path):
@@ -45,7 +51,9 @@ def derived_type_renames(xsd_path):
 
 def main():
     folder = sys.argv[1]
-    folder = folder if os.path.isfile(os.path.join(folder, "binding.xjb")) else os.path.join(folder, "resources", "ade-xjc")
+    folder = (
+        folder if os.path.isfile(os.path.join(folder, "binding.xjb")) else os.path.join(folder, "resources", "ade-xjc")
+    )
     xsd = io.open(os.path.join(folder, "schemas", "urbanObject.xsd"), encoding="utf-8").read()
     p = os.path.join(folder, "binding.xjb")
     s = io.open(p, encoding="utf-8").read()
@@ -76,11 +84,18 @@ def main():
         for n in names:
             if "@name='%s'" % n in new_section:
                 continue
-            new_section += NL + NL.join(['    <jaxb:bindings node="//xs:element[@name=\'%s\']" multiple="true">' % n,
-                                         '      <jaxb:property name="%s"/>' % java_name(n), '    </jaxb:bindings>'])
+            new_section += NL + NL.join(
+                [
+                    '    <jaxb:bindings node="//xs:element[@name=\'%s\']" multiple="true">' % n,
+                    '      <jaxb:property name="%s"/>' % java_name(n),
+                    "    </jaxb:bindings>",
+                ]
+            )
         if new_section != section:
             s = s[:a] + new_section + s[b:]
-            added.append("urf %s package, %d feature renames and hyphenated elements %s" % (m.group(1), len(renames), names))
+            added.append(
+                "urf %s package, %d feature renames and hyphenated elements %s" % (m.group(1), len(renames), names)
+            )
     if added:
         io.open(p, "w", encoding="utf-8", newline=NL).write(s)
     print("binding renames added:", added or "none (already applied or not needed)")

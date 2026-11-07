@@ -21,6 +21,7 @@ Two comparisons are made for every top-level city object (matched by gml:id):
 Numbers in text (including posList) are compared as decimals so "4.0" == "4".
 Whitespace-only text is ignored. Exit code 1 on any difference.
 """
+
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
@@ -80,12 +81,16 @@ def canon(el, strict):
         strict = False
     attrs = el.attrib.items()
     if not strict:
-        attrs = [(k, v) for k, v in attrs
-                 if local(k) not in IGNORE_ATTRIBUTES and not (STRIP_IDS and k == f"{{{GML}}}id")]
+        attrs = [
+            (k, v) for k, v in attrs if local(k) not in IGNORE_ATTRIBUTES and not (STRIP_IDS and k == f"{{{GML}}}id")
+        ]
     # ADE feature types nest standard city object content (creationDate, gml:boundedBy), so the
     # ignored elements apply inside ADE content as well
-    children = tuple(canon(c, strict) for c in el
-                     if local(c.tag) not in IGNORE_ELEMENTS or (strict and ns_of(c.tag) not in (CORE, GML)))
+    children = tuple(
+        canon(c, strict)
+        for c in el
+        if local(c.tag) not in IGNORE_ELEMENTS or (strict and ns_of(c.tag) not in (CORE, GML))
+    )
     if not strict and local(el.tag) in UNORDERED:
         children = tuple(sorted(children))
     return (
@@ -145,8 +150,12 @@ def split(obj):
         std_canon = tuple(other) + tuple(generic)
     else:
         std_canon = tuple(canon(c, False) for c in std_children)
-    std = (obj.tag, tuple(sorted((k, v) for k, v in obj.attrib.items() if local(k) not in IGNORE_ATTRIBUTES)),
-           norm_text(obj.text), std_canon)
+    std = (
+        obj.tag,
+        tuple(sorted((k, v) for k, v in obj.attrib.items() if local(k) not in IGNORE_ATTRIBUTES)),
+        norm_text(obj.text),
+        std_canon,
+    )
     return ade, std
 
 
@@ -214,9 +223,11 @@ def main(argv):
             print(f"\n=== standard content differs for {gid} ===")
             print("\n".join(out[:20]))
 
-    print(f"\ncity objects compared: {len(set(oa) & set(ob))}, ADE properties in original: {ade_total}, "
-          f"objects with ADE differences: {ade_errors}, objects with ADE properties in a different order: {reordered}, "
-          f"objects with standard-content differences: {std_errors}")
+    print(
+        f"\ncity objects compared: {len(set(oa) & set(ob))}, ADE properties in original: {ade_total}, "
+        f"objects with ADE differences: {ade_errors}, objects with ADE properties in a different order: {reordered}, "
+        f"objects with standard-content differences: {std_errors}"
+    )
     return 0 if ade_errors == 0 and std_errors == 0 else 1
 
 

@@ -700,7 +700,7 @@ DECLARE
   app_id bigint;
 BEGIN
   PERFORM citydb.del_surface_data(array_agg(s.id))
-    FROM citydb.surface_data s 
+    FROM citydb.surface_data s
     LEFT OUTER JOIN citydb.textureparam t ON s.id = t.surface_data_id
     WHERE t.surface_data_id IS NULL;
 
@@ -751,12 +751,12 @@ BEGIN
     EXECUTE format('TRUNCATE TABLE citydb.%I CASCADE', rec.table_name);
   END LOOP;
 
-  FOR rec IN 
+  FOR rec IN
     SELECT sequence_name FROM information_schema.sequences where sequence_schema = 'citydb'
     AND sequence_name <> 'ade_seq'
     AND sequence_name <> 'schema_seq'
   LOOP
-    EXECUTE format('ALTER SEQUENCE citydb.%I RESTART', rec.sequence_name);	
+    EXECUTE format('ALTER SEQUENCE citydb.%I RESTART', rec.sequence_name);
   END LOOP;
 END;
 $body$
@@ -29274,5 +29274,3 @@ END;
 $body$
 LANGUAGE plpgsql STRICT;
 ------------------------------------------
-
-
