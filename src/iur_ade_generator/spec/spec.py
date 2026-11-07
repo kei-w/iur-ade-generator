@@ -92,13 +92,8 @@ class Spec:
 
     # ----------------------------------------------------------------- link
     def _link(self) -> None:
+        link_types(self.modules.values())
         for t in self.types.values():
-            base = self.resolve(t.base_name) if t.base_name else None
-            if isinstance(base, Type):
-                t.base = base
-                base.subtypes.append(t)
-            else:
-                t.core_base = t.base_name
             if t.is_property and t.prop_target_ref:
                 prefix, el = split_ref(t.prop_target_ref)
                 m = self.modules.get(prefix)
@@ -229,6 +224,20 @@ class Spec:
                 if f.kind in ("property", "cityObjectRef"):
                     out[f.property_type.qname] = f.property_type
         return list(out.values())
+
+
+def link_types(modules: Iterable[Module]) -> None:
+    """Links the types of the modules to their base types (subtypes, hierarchy roots with their CityGML base); the
+    first step of ``Spec``, usable on the XSDs alone."""
+    modules = list(modules)
+    by_qname = {t.qname: t for m in modules for t in m.types.values()}
+    for t in by_qname.values():
+        base = by_qname.get(t.base_name) if t.base_name else None
+        if base is not None:
+            t.base = base
+            base.subtypes.append(t)
+        else:
+            t.core_base = t.base_name
 
 
 def modules_for(cg4j_repo: str, prefixes: Iterable[str], version: str) -> list[Module]:

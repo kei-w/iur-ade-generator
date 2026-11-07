@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A small Urban Function module in the style of the i-UR urf schema: an abstract root, a concrete member type with
+     a member reference, a city object reference (urf:target) and a property of a uro data type. -->
+<xs:schema xmlns:urf="https://www.geospatial.jp/iur/urf/9.9" xmlns:uro="https://www.geospatial.jp/iur/uro/9.9"
+           xmlns:core="http://www.opengis.net/citygml/2.0" xmlns:gml="http://www.opengis.net/gml"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="https://www.geospatial.jp/iur/urf/9.9"
+           elementFormDefault="qualified" attributeFormDefault="unqualified" version="9.9">
+  <xs:import namespace="http://www.opengis.net/gml" schemaLocation="../../schemas/gml/3.1.1/base/gml.xsd"/>
+  <xs:import namespace="http://www.opengis.net/citygml/2.0" schemaLocation="../../schemas/citygml/2.0.0/cityGMLBase.xsd"/>
+  <xs:import namespace="https://www.geospatial.jp/iur/uro/9.9" schemaLocation="urbanObject.xsd"/>
+
+  <xs:element name="_MiniFunction" type="urf:_MiniFunctionType" abstract="true" substitutionGroup="core:_CityObject"/>
+  <xs:complexType name="_MiniFunctionType" abstract="true">
+    <xs:complexContent>
+      <xs:extension base="core:AbstractCityObjectType">
+        <xs:sequence>
+          <xs:element name="function" type="gml:CodeType" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element name="validFrom" type="xs:date" minOccurs="0"/>
+          <xs:element name="lod1MultiSurface" type="gml:MultiSurfacePropertyType" minOccurs="0"/>
+          <xs:element name="target" type="urf:TargetPropertyType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="_MiniFunctionPropertyType">
+    <xs:sequence minOccurs="0">
+      <xs:element ref="urf:_MiniFunction"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="gml:AssociationAttributeGroup"/>
+  </xs:complexType>
+  <xs:complexType name="TargetPropertyType">
+    <xs:sequence minOccurs="0">
+      <xs:element ref="core:_CityObject"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="gml:AssociationAttributeGroup"/>
+  </xs:complexType>
+
+  <xs:element name="MiniZone" type="urf:MiniZoneType" substitutionGroup="urf:_MiniFunction"/>
+  <xs:complexType name="MiniZoneType">
+    <xs:complexContent>
+      <xs:extension base="urf:_MiniFunctionType">
+        <xs:sequence>
+          <xs:element name="areaInHa" type="gml:MeasureType" minOccurs="0"/>
+          <xs:element name="relatedZone" type="urf:MiniZonePropertyType" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element name="detail" type="uro:DetailAttributePropertyType" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="MiniZonePropertyType">
+    <xs:sequence minOccurs="0">
+      <xs:element ref="urf:MiniZone"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="gml:AssociationAttributeGroup"/>
+  </xs:complexType>
+
+  <xs:element name="MiniDistrict" type="urf:MiniDistrictType" substitutionGroup="urf:_MiniFunction"/>
+  <xs:complexType name="MiniDistrictType">
+    <xs:complexContent>
+      <xs:extension base="urf:_MiniFunctionType"/>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>

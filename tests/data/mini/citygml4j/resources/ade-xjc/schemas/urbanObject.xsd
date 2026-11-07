@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A small Urban Object module in the style of the i-UR uro schema: one feature type with a nested feature, data
+     types with every kind of simple field, a polymorphic data type hierarchy and a hook of bldg:_AbstractBuilding. -->
+<xs:schema xmlns:uro="https://www.geospatial.jp/iur/uro/9.9" xmlns:core="http://www.opengis.net/citygml/2.0"
+           xmlns:bldg="http://www.opengis.net/citygml/building/2.0" xmlns:gml="http://www.opengis.net/gml"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="https://www.geospatial.jp/iur/uro/9.9"
+           elementFormDefault="qualified" attributeFormDefault="unqualified" version="9.9">
+  <xs:import namespace="http://www.opengis.net/gml" schemaLocation="../../schemas/gml/3.1.1/base/gml.xsd"/>
+  <xs:import namespace="http://www.opengis.net/citygml/2.0" schemaLocation="../../schemas/citygml/2.0.0/cityGMLBase.xsd"/>
+  <xs:import namespace="http://www.opengis.net/citygml/building/2.0" schemaLocation="../../schemas/citygml/2.0.0/building.xsd"/>
+
+  <!-- enumerations: identifiers become a JAXB enum, other values stay strings -->
+  <xs:simpleType name="ColorValue">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="red"/>
+      <xs:enumeration value="green"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="GradeValue">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="1"/>
+      <xs:enumeration value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- data types -->
+  <xs:element name="DetailAttribute" type="uro:DetailAttributeType"/>
+  <xs:complexType name="DetailAttributeType">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="count" type="xs:integer" minOccurs="0"/>
+      <xs:element name="area" type="gml:MeasureType" minOccurs="0"/>
+      <xs:element name="kind" type="gml:CodeType" minOccurs="0"/>
+      <xs:element name="date" type="xs:date" minOccurs="0"/>
+      <xs:element name="tags" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="color" type="uro:ColorValue" minOccurs="0"/>
+      <xs:element name="grade" type="uro:GradeValue" minOccurs="0"/>
+      <xs:element name="geometry" type="gml:MultiSurfacePropertyType" minOccurs="0"/>
+      <xs:element name="extra" type="uro:ExtraAttributePropertyType" minOccurs="0"/>
+      <xs:element name="notes" type="uro:NoteAttributePropertyType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="base" type="uro:BaseAttributePropertyType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="DetailAttributePropertyType">
+    <xs:sequence>
+      <xs:element ref="uro:DetailAttribute"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="ExtraAttribute" type="uro:ExtraAttributeType"/>
+  <xs:complexType name="ExtraAttributeType">
+    <xs:sequence>
+      <xs:element name="value" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="ExtraAttributePropertyType">
+    <xs:sequence>
+      <xs:element ref="uro:ExtraAttribute"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="NoteAttribute" type="uro:NoteAttributeType"/>
+  <xs:complexType name="NoteAttributeType">
+    <xs:sequence>
+      <xs:element name="text" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="NoteAttributePropertyType">
+    <xs:sequence>
+      <xs:element ref="uro:NoteAttribute"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- a polymorphic hierarchy: the property type refers to the abstract element -->
+  <xs:element name="BaseAttribute" type="uro:AbstractBaseAttributeType" abstract="true"/>
+  <xs:complexType name="AbstractBaseAttributeType" abstract="true">
+    <xs:sequence>
+      <xs:element name="baseField" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="SubAttribute" type="uro:SubAttributeType" substitutionGroup="uro:BaseAttribute"/>
+  <xs:complexType name="SubAttributeType">
+    <xs:complexContent>
+      <xs:extension base="uro:AbstractBaseAttributeType">
+        <xs:sequence>
+          <xs:element name="subField" type="xs:integer" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="BaseAttributePropertyType">
+    <xs:sequence>
+      <xs:element ref="uro:BaseAttribute"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- feature types -->
+  <xs:element name="MiniFeature" type="uro:MiniFeatureType" substitutionGroup="core:_CityObject"/>
+  <xs:complexType name="MiniFeatureType">
+    <xs:complexContent>
+      <xs:extension base="core:AbstractCityObjectType">
+        <xs:sequence>
+          <xs:element name="label" type="xs:string" minOccurs="0"/>
+          <xs:element name="lod1MultiSurface" type="gml:MultiSurfacePropertyType" minOccurs="0"/>
+          <xs:element name="detail" type="uro:DetailAttributePropertyType" minOccurs="0"/>
+          <xs:element name="part" type="uro:MiniPartPropertyType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="MiniPart" type="uro:MiniPartType" substitutionGroup="core:_CityObject"/>
+  <xs:complexType name="MiniPartType">
+    <xs:complexContent>
+      <xs:extension base="core:AbstractCityObjectType">
+        <xs:sequence>
+          <xs:element name="partName" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="MiniPartPropertyType">
+    <xs:sequence minOccurs="0">
+      <xs:element ref="uro:MiniPart"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="gml:AssociationAttributeGroup"/>
+  </xs:complexType>
+
+  <!-- hooks -->
+  <xs:element name="miniDetailAttribute" type="uro:DetailAttributePropertyType" substitutionGroup="bldg:_GenericApplicationPropertyOfAbstractBuilding"/>
+  <xs:element name="miniNoteAttribute" type="uro:NoteAttributePropertyType" substitutionGroup="bldg:_GenericApplicationPropertyOfAbstractBuilding"/>
+</xs:schema>

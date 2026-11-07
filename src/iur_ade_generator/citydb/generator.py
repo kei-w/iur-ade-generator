@@ -83,6 +83,16 @@ class Generator(BalloonWriter, ImporterWriter):
 
     def run(self) -> str:
         """Generates everything; returns a summary line."""
+        importers, exporters, join_importers, hook_importers, hook_exporters = self.generate_classes()
+        self.register(importers, exporters, join_importers, hook_importers, hook_exporters)
+        return "tables: %d injections: %d" % (len(self.tables), len(self.injections))
+
+    def generate_classes(
+        self,
+    ) -> tuple[list[str], list[str], list[tuple[str, str]], list[tuple[str, str]], list[tuple[str, str]]]:
+        """Writes the importers, exporters, join table importers, hook classes and balloon handlers; returns
+        (importers, exporters, join importers, hook importers, hook exporters) as (table, class) pairs where the
+        table matters."""
         importers: list[str] = []
         exporters: list[str] = []
         join_importers: list[tuple[str, str]] = []
@@ -141,6 +151,17 @@ class Generator(BalloonWriter, ImporterWriter):
             if m.prefix != "uro":
                 self.gen_balloon_handler(m)
         self.clean_stale()
+        return importers, exporters, join_importers, hook_importers, hook_exporters
+
+    def register(
+        self,
+        importers: list[str],
+        exporters: list[str],
+        join_importers: list[tuple[str, str]],
+        hook_importers: list[tuple[str, str]],
+        hook_exporters: list[tuple[str, str]],
+    ) -> None:
+        """Registers the generated classes in the hand-written schema and manager classes of the fork."""
         self.patch_ade_table(hook_importers + join_importers)
         self.patch_ade_sequence()
         self.patch_table_mapper()
@@ -149,7 +170,6 @@ class Generator(BalloonWriter, ImporterWriter):
         self.patch_export_manager(exporters, hook_exporters)
         self.fix_date_list_columns()
         self.patch_module_constants()
-        return "tables: %d injections: %d" % (len(self.tables), len(self.injections))
 
 
 def generate(repo: str, cg4j: str, version: str, preset: str, prefixes: Sequence[str] = ("uro",)) -> str:

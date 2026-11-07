@@ -517,8 +517,10 @@ def generate(repo: str, cg4j: str, version: str, prefix: str, deps: Sequence[str
     # mapping: the module's complex types before </complexTypes>, its feature types before </featureTypes>
     complex_xml = "\n".join("\n".join(gen.xml[t.qname]) for t in gen.types if not t.is_feature)
     feature_xml = "\n".join("\n".join(gen.xml[t.qname]) for t in gen.types if t.is_feature)
-    mapping = mapping.replace("    </complexTypes>", complex_xml + "\n    </complexTypes>", 1)
-    mapping = mapping.replace("    </featureTypes>", feature_xml + "\n    </featureTypes>", 1)
+    if complex_xml:
+        mapping = mapping.replace("    </complexTypes>", complex_xml + "\n    </complexTypes>", 1)
+    if feature_xml:
+        mapping = mapping.replace("    </featureTypes>", feature_xml + "\n    </featureTypes>", 1)
     write(os.path.join(repo, MAP), mapping)
 
     # ddl: previous tables of the module removed, new blocks appended to the sections

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<schemaMapping xmlns="http://www.3dcitydb.org/database/schema/1.0">
+    <metadata>
+        <name>mini ADE</name>
+        <version>9.9</version>
+        <description>mini ADE</description>
+        <dbPrefix>ur</dbPrefix>
+    </metadata>
+    <applicationSchemas>
+        <schema id="ur_0" isADERoot="true">
+            <namespace context="citygml-2.0">https://www.geospatial.jp/iur/uro/9.9</namespace>
+        </schema>
+        <schema id="ur_1" isADERoot="true">
+            <namespace context="citygml-2.0">https://www.geospatial.jp/iur/urf/9.9</namespace>
+        </schema>
+    </applicationSchemas>
+    <complexTypes>
+        <complexType id="ur_0_DetailAttributeType" table="ur_detailattribute" objectClassId="60001" path="DetailAttribute" schema="ur_0">
+            <attribute column="name" type="string" minOccurs="1" maxOccurs="1" path="name" schema="ur_0"/>
+            <attribute column="count" type="integer" maxOccurs="1" path="count" schema="ur_0"/>
+            <complexAttribute maxOccurs="1" path="area" schema="ur_0">
+                <attribute column="area_uom" type="string" path="@uom" schema="gml"/>
+                <attribute column="area" type="double" path="." schema="ur_0"/>
+            </complexAttribute>
+            <complexAttribute maxOccurs="1" path="kind" schema="ur_0">
+                <attribute column="kind_codespace" type="string" path="@codespace" schema="gml"/>
+                <attribute column="kind" type="string" path="." schema="ur_0"/>
+            </complexAttribute>
+            <attribute column="date_" type="timestamp" maxOccurs="1" path="date" schema="ur_0"/>
+            <attribute column="tags" type="string" path="tags" schema="ur_0"/>
+            <attribute column="color" type="string" maxOccurs="1" path="color" schema="ur_0"/>
+            <attribute column="grade" type="string" maxOccurs="1" path="grade" schema="ur_0"/>
+            <geometryProperty refColumn="geometry_id" type="MultiSurface" maxOccurs="1" path="geometry" schema="ur_0"/>
+            <complexProperty refType="ur_0_ExtraAttributeType" maxOccurs="1" path="extra" schema="ur_0">
+                <join table="ur_extraattribute" fromColumn="extra_id" toColumn="id" toRole="parent"/>
+            </complexProperty>
+            <complexProperty refType="ur_0_NoteAttributeType" path="notes" schema="ur_0">
+                <joinTable table="ur_detailatt_to_noteattri">
+                    <join table="ur_detailattribute" fromColumn="detailattribute_id" toColumn="id" toRole="parent"/>
+                    <inverseJoin table="ur_noteattribute" fromColumn="noteattribute_id" toColumn="id" toRole="parent"/>
+                </joinTable>
+            </complexProperty>
+            <complexProperty refType="ur_0_AbstractBaseAttributeType" maxOccurs="1" path="base" schema="ur_0">
+                <join table="ur_baseattribute" fromColumn="base_id" toColumn="id" toRole="parent">
+                    <condition column="objectclass_id" value="${target.objectclass_id}" type="integer"/>
+                </join>
+            </complexProperty>
+        </complexType>
+        <complexType id="ur_0_ExtraAttributeType" table="ur_extraattribute" objectClassId="60002" path="ExtraAttribute" schema="ur_0">
+            <attribute column="value_" type="string" minOccurs="1" maxOccurs="1" path="value" schema="ur_0"/>
+        </complexType>
+        <complexType id="ur_0_NoteAttributeType" table="ur_noteattribute" objectClassId="60003" path="NoteAttribute" schema="ur_0">
+            <attribute column="text" type="string" minOccurs="1" maxOccurs="1" path="text" schema="ur_0"/>
+        </complexType>
+        <complexType abstract="true" id="ur_0_AbstractBaseAttributeType" table="ur_baseattribute" objectClassId="60004" path="AbstractBaseAttribute" schema="ur_0">
+            <attribute column="basefield" type="string" maxOccurs="1" path="baseField" schema="ur_0"/>
+        </complexType>
+        <complexType id="ur_0_SubAttributeType" table="ur_baseattribute" objectClassId="60005" path="SubAttribute" schema="ur_0">
+            <extension base="ur_0_AbstractBaseAttributeType"/>
+            <attribute column="subfield" type="integer" maxOccurs="1" path="subField" schema="ur_0"/>
+        </complexType>
+    </complexTypes>
+    <featureTypes>
+        <featureType id="ur_0_MiniFeatureType" table="ur_minifeature" objectClassId="60006" topLevel="true" path="MiniFeature" schema="ur_0">
+            <extension base="AbstractCityObjectType">
+                <join table="cityobject" fromColumn="id" toColumn="id" toRole="parent"/>
+            </extension>
+            <attribute column="label" type="string" maxOccurs="1" path="label" schema="ur_0"/>
+            <geometryProperty lod="1" refColumn="lod1multisurface_id" type="MultiSurface" maxOccurs="1" path="lod1MultiSurface" schema="ur_0"/>
+            <complexProperty refType="ur_0_DetailAttributeType" maxOccurs="1" path="detail" schema="ur_0">
+                <join table="ur_detailattribute" fromColumn="detail_id" toColumn="id" toRole="parent"/>
+            </complexProperty>
+            <featureProperty target="ur_0_MiniPartType" path="part" schema="ur_0">
+                <join table="ur_minipart" fromColumn="id" toColumn="minifeature_part_id" toRole="child"/>
+            </featureProperty>
+        </featureType>
+        <featureType id="ur_0_MiniPartType" table="ur_minipart" objectClassId="60007" path="MiniPart" schema="ur_0">
+            <extension base="AbstractCityObjectType">
+                <join table="cityobject" fromColumn="id" toColumn="id" toRole="parent"/>
+            </extension>
+            <attribute column="partname" type="string" maxOccurs="1" path="partName" schema="ur_0"/>
+        </featureType>
+        <featureType abstract="true" id="ur_1__MiniFunctionType" table="ur_abstractminifunction" objectClassId="60008" path="_MiniFunction" schema="ur_1">
+            <extension base="AbstractCityObjectType">
+                <join table="cityobject" fromColumn="id" toColumn="id" toRole="parent"/>
+            </extension>
+            <complexAttribute path="function" schema="ur_1">
+                <attribute column="function_codespace" type="string" path="@codespace" schema="gml"/>
+                <attribute column="function" type="string" path="." schema="ur_1"/>
+            </complexAttribute>
+            <attribute column="validfrom" type="timestamp" maxOccurs="1" path="validFrom" schema="ur_1"/>
+            <geometryProperty lod="1" refColumn="lod1multisurface_id" type="MultiSurface" maxOccurs="1" path="lod1MultiSurface" schema="ur_1"/>
+            <featureProperty target="AbstractCityObjectType" path="target" schema="ur_1">
+                <joinTable table="ur_abstractm_to_cityobjec">
+                    <join table="ur_abstractminifunction" fromColumn="abstractminifunction_id" toColumn="id" toRole="parent">
+                        <condition column="objectclass_id" value="${target.objectclass_id}" type="integer"/>
+                    </join>
+                    <inverseJoin table="cityobject" fromColumn="cityobject_id" toColumn="id" toRole="parent">
+                        <condition column="objectclass_id" value="${target.objectclass_id}" type="integer"/>
+                    </inverseJoin>
+                </joinTable>
+            </featureProperty>
+        </featureType>
+        <featureType id="ur_1_MiniZoneType" table="ur_minizone" objectClassId="60009" topLevel="true" path="MiniZone" schema="ur_1">
+            <extension base="ur_1__MiniFunctionType">
+                <join table="ur_abstractminifunction" fromColumn="id" toColumn="id" toRole="parent"/>
+            </extension>
+            <complexAttribute maxOccurs="1" path="areaInHa" schema="ur_1">
+                <attribute column="areainha_uom" type="string" path="@uom" schema="gml"/>
+                <attribute column="areainha" type="double" path="." schema="ur_1"/>
+            </complexAttribute>
+            <featureProperty target="ur_1_MiniZoneType" path="relatedZone" schema="ur_1">
+                <joinTable table="ur_minizone_to_minizone">
+                    <join table="ur_minizone" fromColumn="minizone_id" toColumn="id" toRole="parent"/>
+                    <inverseJoin table="ur_minizone" fromColumn="minizone_id_2" toColumn="id" toRole="parent"/>
+                </joinTable>
+            </featureProperty>
+            <complexProperty refType="ur_0_DetailAttributeType" maxOccurs="1" path="detail" schema="ur_1">
+                <join table="ur_detailattribute" fromColumn="detail_id" toColumn="id" toRole="parent"/>
+            </complexProperty>
+        </featureType>
+        <featureType id="ur_1_MiniDistrictType" table="ur_abstractminifunction" objectClassId="60010" topLevel="true" path="MiniDistrict" schema="ur_1">
+            <extension base="ur_1__MiniFunctionType"/>
+        </featureType>
+    </featureTypes>
+    <propertyInjections>
+        <propertyInjection table="ur_building" defaultBase="AbstractBuildingType">
+            <join table="ur_building" fromColumn="ID" toColumn="ID" toRole="child"/>
+            <complexProperty refType="ur_0_DetailAttributeType" maxOccurs="1" path="miniDetailAttribute" schema="ur_0">
+                <join table="ur_detailattribute" fromColumn="minidetailattribute_id" toColumn="id" toRole="parent"/>
+            </complexProperty>
+            <complexProperty refType="ur_0_NoteAttributeType" path="miniNoteAttribute" schema="ur_0">
+                <joinTable table="ur_building_to_noteattri">
+                    <join table="ur_building" fromColumn="building_id" toColumn="id" toRole="parent"/>
+                    <inverseJoin table="ur_noteattribute" fromColumn="noteattribute_id" toColumn="id" toRole="parent"/>
+                </joinTable>
+            </complexProperty>
+        </propertyInjection>
+    </propertyInjections>
+</schemaMapping>
