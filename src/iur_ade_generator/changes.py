@@ -135,10 +135,10 @@ def urf_texts(ver: str, features: str, data_types: str) -> tuple[str, str, str, 
         )
     db_changes = (
         "* **Breaking:** import/export of the Urban Function module (`urf`) version %s of the i-UR ADE: %s feature types and\n"
-        "  %s data types. The `urf` tables are generated in the style of the ADE Manager (`poc/gen/gen_mapping.py` in the\n"
-        "  PoC workspace; the ADE Manager itself does not finish the transformation of the urban function hierarchy) and\n"
-        "  replace the 1.4 tables; every concrete `urf` feature is top-level, references between members and `urf:target`\n"
-        "  are join tables exported as xlinks.\n"
+        "  %s data types. The `urf` tables are generated in the style of the ADE Manager (`iur-ade gen-mapping` of the\n"
+        "  `iur-ade-generator` repository; the ADE Manager itself does not finish the transformation of the urban function\n"
+        "  hierarchy) and replace the 1.4 tables; every concrete `urf` feature is top-level, references between members and\n"
+        "  `urf:target` are join tables exported as xlinks.\n"
         "* **Breaking:** multi-valued data type properties of all modules are stored in join tables (`ur_<owner>_to_<type>`)\n"
         "  instead of one foreign key column per owner in the type's table: the Importer/Exporter orders its batch commits by\n"
         "  table weights summed along the schema mapping joins in `int` arithmetic, and the shared `uro` data types made the\n"
