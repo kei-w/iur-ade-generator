@@ -22,6 +22,8 @@ class JoinTableWriter(FieldWriter):
         enum = jt.table[3:].upper()
         owner_var = uncap(owner if isinstance(owner, str) else owner.concrete.model)
         target_id = "cityObjectId" if f.kind == "cityObjectRef" else uncap(f.nested.model) + "Id"
+        if target_id == owner_var + "Id":  # self reference (urt Route/parentRoute)
+            target_id = f.model_name + "Id"
         text = render(
             "citydb/join_importer.java.j2",
             header=self.header,
@@ -46,7 +48,7 @@ class JoinTableWriter(FieldWriter):
         need_cityobject = False
         for f in fields_with_jt:
             jt = f.mapped.require_join_table()
-            name = f.model_name
+            name = self.join_name(f)
             var = name + "s" if name != "table" else "joinTable"
             stmts += f"        Table {var} = new Table(helper.getTableNameWithSchema(manager.getSchemaMapper().getTableName(ADETable.{jt.table[3:].upper()})));\n"
             if f.kind == "cityObjectRef" or f.is_feature_property:

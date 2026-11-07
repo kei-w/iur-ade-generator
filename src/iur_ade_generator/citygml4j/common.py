@@ -24,6 +24,7 @@ IMPORTS = {
     "GeometricComplexProperty": "org.citygml4j.model.gml.geometry.complexes.GeometricComplexProperty",
     "AddressProperty": "org.citygml4j.model.citygml.core.AddressProperty",
     "LocalDate": "java.time.LocalDate",
+    "LocalTime": "java.time.LocalTime",
     "Year": "java.time.Year",
     "YearMonth": "java.time.YearMonth",
     "List": "java.util.List",
@@ -83,10 +84,11 @@ def render_imports(imports: Iterable[str]) -> str:
     return out
 
 
-def infer_imports(body: str, extra: Iterable[str] = ()) -> set[str]:
+def infer_imports(body: str, extra: Iterable[str] = (), exclude: Iterable[str] = ()) -> set[str]:
+    """The imports of the classes of ``IMPORTS`` named in the body (except the excluded simple names)."""
     imports = set(extra)
     for token, imp in IMPORTS.items():
-        if re.search(r"\b%s\b" % token, body):
+        if token not in exclude and re.search(r"\b%s\b" % token, body):
             imports.add(imp)
     return imports
 

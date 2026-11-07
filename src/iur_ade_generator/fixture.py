@@ -100,6 +100,8 @@ class Fixture:
             return "true" if idx % 2 == 0 else "false"
         if k == "date":
             return "2024-01-%02d" % (2 + idx % 26)
+        if k == "time":
+            return "08:%02d:00" % (idx % 60)
         if k == "year":
             return str(2020 + idx)
         if k == "yearMonth":

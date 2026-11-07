@@ -140,3 +140,76 @@ def test_ignore_creation_date_only(tmp_path: Path) -> None:
     b = write(tmp_path, "b.gml", ORIGINAL.replace("2026-01-01", "2026-11-07"))
     assert compare.main([a, b]) == 1
     assert compare.main([a, b, "--ignore-creation-date"]) == 0
+
+
+GROUP_HEADER = HEADER.replace(
+    "xmlns:xlink=", 'xmlns:grp="http://www.opengis.net/citygml/cityobjectgroup/2.0" xmlns:xlink='
+)
+RING_POS = (
+    "      <uro:lod0MultiSurface><gml:MultiSurface><gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing>"
+    "<gml:pos>1.0 2.0 0</gml:pos><gml:pos>3 4 0</gml:pos><gml:pos>1 2 0</gml:pos>"
+    "</gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember></gml:MultiSurface></uro:lod0MultiSurface>\n"
+)
+RING_POS_LIST = (
+    "      <uro:lod0MultiSurface><gml:MultiSurface><gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing>"
+    "<gml:posList>1 2 0 3 4 0 1 2 0</gml:posList>"
+    "</gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember></gml:MultiSurface></uro:lod0MultiSurface>\n"
+)
+
+
+def test_db_treats_a_run_of_pos_elements_as_a_pos_list(tmp_path: Path) -> None:
+    a = write(tmp_path, "a.gml", building("b1", STANDARD + RING_POS))
+    b = write(tmp_path, "b.gml", building("b1", STANDARD + RING_POS_LIST))
+    assert compare.main([a, b]) == 1
+    assert compare.main([a, b, "--db"]) == 0
+
+
+def test_inline_group_members_are_compared_with_the_exported_top_level_objects(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    inline = (
+        '  <core:cityObjectMember>\n    <grp:CityObjectGroup gml:id="g1">\n      <grp:groupMember>\n'
+        '        <bldg:Building gml:id="b1">\n' + DETAIL + "        </bldg:Building>\n"
+        "      </grp:groupMember>\n    </grp:CityObjectGroup>\n  </core:cityObjectMember>\n"
+    )
+    exported = (
+        building("b1", CREATION_DATE + DETAIL)
+        + '  <core:cityObjectMember>\n    <grp:CityObjectGroup gml:id="g1">\n'
+        + CREATION_DATE
+        + '      <grp:groupMember xlink:href="#b1"/>\n    </grp:CityObjectGroup>\n  </core:cityObjectMember>\n'
+    )
+    a, b = tmp_path / "a.gml", tmp_path / "b.gml"
+    a.write_text(GROUP_HEADER + inline + FOOTER, encoding="utf-8")
+    b.write_text(GROUP_HEADER + exported + FOOTER, encoding="utf-8")
+    assert compare.main([str(a), str(b), "--db"]) == 1
+    out = capsys.readouterr().out
+    assert "city objects compared: 2" in out and "objects with ADE differences: 0" in out
+    assert "standard content differs for g1" in out, "the inline member versus the xlink is a standard difference"
+
+
+def test_db_resolves_shared_geometries_and_array_properties(tmp_path: Path) -> None:
+    ring = "<gml:LinearRing><gml:posList>1 2 0 3 4 0 1 2 0</gml:posList></gml:LinearRing>"
+    inline = (
+        '      <uro:lod0MultiSurface><gml:MultiSurface gml:id="ms1"><gml:surfaceMembers><gml:Polygon gml:id="p1">'
+        f"<gml:exterior>{ring}</gml:exterior></gml:Polygon></gml:surfaceMembers></gml:MultiSurface>"
+        "</uro:lod0MultiSurface>\n"
+    )
+    exported = (
+        '      <uro:lod0MultiSurface><gml:MultiSurface gml:id="x"><gml:surfaceMember><gml:Polygon gml:id="y">'
+        f"<gml:exterior>{ring}</gml:exterior></gml:Polygon></gml:surfaceMember></gml:MultiSurface>"
+        "</uro:lod0MultiSurface>\n"
+    )
+    reference = '      <uro:lod0MultiSurface xlink:href="#ms1"/>\n'
+    reference_exported = '      <uro:lod0MultiSurface xlink:href="#x"/>\n'
+    # the original writes the geometry in b1 and refers to it from b2; the export inlines it in b2 first
+    a = write(tmp_path, "a.gml", building("b1", STANDARD + inline), building("b2", STANDARD + reference))
+    b = write(tmp_path, "b.gml", building("b1", STANDARD + reference_exported), building("b2", STANDARD + exported))
+    assert compare.main([a, b]) == 1
+    assert compare.main([a, b, "--db"]) == 0
+
+
+def test_db_ignores_a_missing_hash_in_xlinks(tmp_path: Path) -> None:
+    a = write(tmp_path, "a.gml", building("b1", STANDARD + '      <uro:buildingIDAttribute xlink:href="x1"/>\n'))
+    b = write(tmp_path, "b.gml", building("b1", STANDARD + '      <uro:buildingIDAttribute xlink:href="#x1"/>\n'))
+    assert compare.main([a, b]) == 1
+    assert compare.main([a, b, "--db"]) == 0

@@ -25,12 +25,38 @@ CLEAN_DB = re.compile(r"objects with ADE differences: 0, .*different order: 0")
 NO_ADE_DIFFERENCE = re.compile(r"objects with ADE differences: 0,")
 
 
+MEMBER = re.compile(r"(<(?:\w+:)?(?:cityObjectMember|groupMember)>\s*<\w+:\w+)(\s[^>]*)?>")
+
+
+def with_ids(f: Path, out: Path) -> Path:
+    """A copy of the file in which every city object (also the group members) has a gml:id, or the file itself when
+    all of them have one: the comparison matches the objects by gml:id (the i-UR sample data has none)."""
+    text = f.read_text(encoding="utf-8")
+    count = 0
+
+    def add_id(m: re.Match[str]) -> str:
+        nonlocal count
+        attrs = m.group(2) or ""
+        if "gml:id=" in attrs:
+            return m.group(0)
+        count += 1
+        return f'{m.group(1)}{attrs} gml:id="{f.stem}_{count}">'
+
+    text = MEMBER.sub(add_id, text)
+    if not count:
+        return f
+    copy = out / f"{f.stem}.in{f.suffix}"
+    copy.write_text(text, encoding="utf-8", newline="\n")
+    log.info("%s: %d city objects without gml:id, using %s", f.name, count, copy.name)
+    return copy
+
+
 def gml_files(paths: Sequence[Path]) -> list[Path]:
-    """The ``.gml`` files of the given files and folders (folders recursively), sorted."""
+    """The ``.gml`` and ``.xml`` files of the given files and folders (folders recursively), sorted."""
     files: list[Path] = []
     for p in paths:
         if p.is_dir():
-            files.extend(sorted(p.rglob("*.gml")))
+            files.extend(sorted(x for x in p.rglob("*") if x.suffix in (".gml", ".xml")))
         elif p.is_file():
             files.append(p)
         else:
@@ -44,8 +70,8 @@ def verify_files(config: Config, version: str, paths: Sequence[Path], out: Path)
     """citygml4j round trip of every file; returns the number of failed or different files."""
     edition = config.edition(version)
     checkout(config, edition)
-    files = gml_files(paths)
     out.mkdir(parents=True, exist_ok=True)
+    files = [with_ids(f, out) for f in gml_files(paths)]
     bad = 0
     for f in files:
         roundtrip = out / f"{f.stem}.rt.gml"
@@ -74,8 +100,8 @@ def verify_db(config: Config, version: str, paths: Sequence[Path], out: Path, na
     """Database round trip of every file; returns the number of failed or different files."""
     edition = config.edition(version)
     checkout(config, edition)
-    files = gml_files(paths)
     out.mkdir(parents=True, exist_ok=True)
+    files = [with_ids(f, out) for f in gml_files(paths)]
     name = name or edition.database
     tools, db = config.tools, config.database
     database.recreate(config, name, extension_dir(config, edition), out)

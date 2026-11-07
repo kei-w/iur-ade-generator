@@ -23,6 +23,9 @@ MODEL_FIELD_NAMES = {"class": "classifier"}
 # fields of feature types whose accessor would clash with one inherited from the base class; the JAXB property is
 # renamed alike in binding.xjb (otherwise ade-xjc binds the whole content model as a generic "rest" list)
 FEATURE_FIELD_NAMES = {"id": "identifier", "boundedBy": "boundedBySurface", "location": "locationDescription"}
+# ... and those renamed with the feature type as prefix (urt Route/description -> routeDescription, Agency/name ->
+# agencyName), as the hand-written urt classes of iur-ade-citygml4j 1.4 named them
+PREFIXED_FEATURE_FIELDS = ("name", "description")
 
 # SQL reserved words (PostgreSQL and Oracle) that get a trailing underscore as column names, as the ADE Manager does
 RESERVED = set(
@@ -206,12 +209,23 @@ def java_name(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "", re.sub(r"^lod-(\d)", r"lodMinus\1", name))
 
 
-def model_field(name: str, feature: bool = False) -> str:
-    """Name of the model accessor of an XSD element: feature fields clashing with inherited accessors are renamed, Java
-    keywords get a suffix."""
+def feature_field(type_name: str, element: str) -> str | None:
+    """The renamed accessor and JAXB property of an element of a feature type (XSD type name) that clashes with an
+    inherited one, None when it does not clash."""
+    if element in FEATURE_FIELD_NAMES:
+        return FEATURE_FIELD_NAMES[element]
+    if element in PREFIXED_FEATURE_FIELDS:
+        return uncap(re.sub(r"Type$", "", type_name)) + cap(element)
+    return None
+
+
+def model_field(name: str, feature_type: str | None = None) -> str:
+    """Name of the model accessor of an XSD element: fields of a feature type (XSD type name) clashing with inherited
+    accessors are renamed, Java keywords get a suffix."""
     name = java_name(name)
-    if feature and name in FEATURE_FIELD_NAMES:
-        return FEATURE_FIELD_NAMES[name]
+    renamed = feature_field(feature_type, name) if feature_type is not None else None
+    if renamed is not None:
+        return renamed
     return MODEL_FIELD_NAMES.get(name, name + "Value" if name in JAVA_KEYWORDS else name)
 
 

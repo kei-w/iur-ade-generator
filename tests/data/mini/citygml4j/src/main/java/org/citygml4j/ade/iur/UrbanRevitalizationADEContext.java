@@ -3,7 +3,7 @@
  * (the generators copy this license header into the generated files)
  */
 
-package org.citygml4j.ade.iur.model.uro;
+package org.citygml4j.ade.iur;
 
-public class FiscalYearOfPublicationProperty {
+public class UrbanRevitalizationADEContext {
 }

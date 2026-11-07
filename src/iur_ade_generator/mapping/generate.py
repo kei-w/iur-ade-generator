@@ -60,6 +60,7 @@ ATTRIBUTE_TYPES = {
     "boolean": "boolean",
     "date": "timestamp",
     "dateTime": "timestamp",
+    "time": "timestamp",
     "year": "date",
     "yearMonth": "date",
     "directPosition": "clob",
@@ -455,6 +456,18 @@ class MappingGenerator:
 
 
 # ------------------------------------------------------------------- merging
+def object_class_start(mapping: str, module: Module, spec: Spec, old_ids: set[int]) -> int:
+    """The first object class id of the module: the start of its previous range when the types still fit in front
+    of the other ids (keeps the ids stable across regenerations), else after the highest id in use."""
+    count = sum(1 for t in spec.types.values() if t.module is module and not t.is_property)
+    used = {int(x) for x in re.findall(r'objectClassId="(\d+)"', mapping)}
+    if old_ids:
+        start = min(old_ids)
+        if not any(start <= i < start + count for i in used):
+            return start
+    return max(used) + 1
+
+
 def generate(repo: str, cg4j: str, version: str, prefix: str, deps: Sequence[str] = ("uro",)) -> str:
     """Generates the mapping and DDL of the module ``prefix`` into the citydb repository; returns a summary line."""
     spec = Spec(modules_for(cg4j, [*deps, prefix], version), os.path.join(repo, MAP), os.path.join(repo, PG))
@@ -476,11 +489,16 @@ def generate(repo: str, cg4j: str, version: str, prefix: str, deps: Sequence[str
             '        <schema id="%s" isADERoot="true">\n            <namespace context="citygml-2.0">%s</namespace>\n'
             "        </schema>\n    </applicationSchemas>" % (sid, module.namespace),
         )
+    # (also the self-closing tags of abstract types without properties, the 1.4 urt _PublicTransitDataType)
     old_blocks = re.findall(
-        r' {8}<(?:featureType|complexType) [^>]*schema="%s">.*?</(?:featureType|complexType)>\n' % sid, mapping, re.S
+        r' {8}<(?:featureType|complexType) [^>]*schema="%s"(?:/>|>.*?</(?:featureType|complexType)>)\n' % sid,
+        mapping,
+        re.S,
     )
     old_tables: set[str] = set()
+    old_ids: set[int] = set()
     for b in old_blocks:
+        old_ids |= {int(x) for x in re.findall(r'objectClassId="(\d+)"', b)}
         # the tables of the module's types and their join tables (not the tables of other modules they join to)
         old_tables |= set(re.findall(r'<(?:featureType|complexType) [^>]*table="(\w+)"', b))
         old_tables |= set(re.findall(r'<joinTable table="(\w+)"', b))
@@ -492,11 +510,16 @@ def generate(repo: str, cg4j: str, version: str, prefix: str, deps: Sequence[str
         tm = re.search(r"CREATE TABLE %s\n\((.*?)\n\);" % t, pg, re.S)
         if tm:
             old_sequences |= set(re.findall(r"nextval\('(\w+)'", tm.group(1)))
+    # the injection tables of the hooks and their join tables keep their columns: the regenerated tables of the
+    # module keep their names, so the foreign keys stay valid
+    injection_tables = set(re.findall(r'<propertyInjection table="(\w+)"', mapping))
+    for inj in re.findall(r"<propertyInjection .*?</propertyInjection>", mapping, re.S):
+        injection_tables |= set(re.findall(r'<joinTable table="(\w+)"', inj))
     cleaned = {}
     for create, drop, _ in DDL_FILES:
         c = ddl_.remove_blocks(read(os.path.join(repo, create)), old_tables, old_sequences)
         d = ddl_.remove_blocks(read(os.path.join(repo, drop)), old_tables, old_sequences)
-        cleaned[create], cleaned[drop] = ddl_.remove_foreign_columns(c, d, old_tables)
+        cleaned[create], cleaned[drop] = ddl_.remove_foreign_columns(c, d, old_tables, keep=injection_tables)
     pg = cleaned[PG]
     remaining_tables = set(re.findall(r"^CREATE TABLE (\w+)$", pg, re.M))
     remaining_names = (
@@ -504,7 +527,7 @@ def generate(repo: str, cg4j: str, version: str, prefix: str, deps: Sequence[str
         | set(re.findall(r"CREATE INDEX (\w+)", pg))
         | set(re.findall(r"CREATE SEQUENCE (\w+)", pg))
     )
-    first_id = max(int(x) for x in re.findall(r'objectClassId="(\d+)"', mapping)) + 1
+    first_id = object_class_start(mapping, module, spec, old_ids)
     gen = MappingGenerator(
         spec,
         module,

@@ -62,6 +62,13 @@ class RegistryWriter(HookWriter):
         return None
 
     # ---------------------------------------------------------------- schema
+    def hook_module(self, table: str, importer: str) -> str:
+        """Module of the importer of an injection table (the hook importers of all modules share their class name,
+        CityObjectGroupPropertiesImporter) or of a join table."""
+        if table in self.injections:
+            return self.injections[table][1][0].module.prefix
+        return self.class_module[importer]
+
     def patch_ade_table(self, hook_importers: Sequence[tuple[str, str]]) -> None:
         p = os.path.join(self.src, "schema", "ADETable.java")
         s = read(p)
@@ -71,7 +78,7 @@ class RegistryWriter(HookWriter):
             tbl.name: (tbl.importer, tbl.module.prefix)
             for tbl in list(self.tables.values()) + list(self.feature_tables.values())
         }
-        by_table.update({t: (n, self.class_module[n]) for t, n in hook_importers})
+        by_table.update({t: (n, self.hook_module(t, n)) for t, n in hook_importers})
         ambiguous = {
             n
             for n in self.class_module
@@ -195,12 +202,28 @@ class RegistryWriter(HookWriter):
             if path not in gen_paths
             and not any(os.path.exists(os.path.join(self.model_dir(x.prefix), cls + ".java")) for x in self.modules)
         ]
-        new = kept + [(t.mapped.path, self.model_ref(t)) for t in self.types]
-        block = "".join(
-            '                case "%s":\n                    typeClassIds.put(%s.class, typeClassId);\n                    break;\n'
-            % (path, cls)
-            for path, cls in new
-        )
+        # a path shared by two modules (urf and urg 2.0 NumberOfHouseholds) is told apart by the schema namespace
+        by_path: dict[str, list[tuple[str | None, str]]] = {}
+        for path, cls in kept:
+            by_path.setdefault(path, []).append((None, cls))
+        for t in self.types:
+            by_path.setdefault(t.mapped.path, []).append(
+                (f"{t.module.module_class}.{t.module.version_const}", self.model_ref(t))
+            )
+        block = ""
+        for path, alternatives in by_path.items():
+            block += f'                case "{path}":\n'
+            if len(alternatives) == 1:
+                block += f"                    typeClassIds.put({alternatives[0][1]}.class, typeClassId);\n"
+            else:
+                for i, (module_const, model) in enumerate(alternatives):
+                    if module_const is None:
+                        raise GeneratorError(f"data type path {path} is shared with a hand-written module")
+                    block += (
+                        f"                    {'if' if i == 0 else 'else if'} (type.getSchema().matchesNamespaceURI({module_const}.getNamespaceURI()))\n"
+                        f"                        typeClassIds.put({model}.class, typeClassId);\n"
+                    )
+            block += "                    break;\n"
         write(p, s[:b] + block + s[c:])
 
     # -------------------------------------------------------------- managers
@@ -271,39 +294,28 @@ class RegistryWriter(HookWriter):
             imports |= set(classes) | {param_cls}
             kw = "if"  # independent checks: a Road also carries the TransportationComplex hook table
             if BASE_TARGETS[inj.default_base] == "CityObjectGroup":
-                urf14 = (
-                    ""
-                    if "urf" in self.spec.modules
-                    else (
-                        "            if (properties.containsOneOf(org.citygml4j.ade.iur.model.urf.FiscalYearOfPublicationProperty.class,\n"
-                        "                    org.citygml4j.ade.iur.model.urf.LanguageProperty.class)) {\n"
-                        "                getImporter(org.citydb.ade.iur.importer.urf.CityObjectGroupPropertiesImporter.class).doImport(properties, (CityObjectGroup) parent, parentId, parentType);\n"
-                        "            }\n"
-                    )
-                )
-                lines.append(
-                    f"        {kw} (parent instanceof CityObjectGroup) {{\n"
-                    + urf14
-                    + "            if (properties.containsOneOf(org.citygml4j.ade.iur.model.urg.FiscalYearOfPublicationProperty.class,\n"
-                    "                    org.citygml4j.ade.iur.model.urg.LanguageProperty.class)) {\n"
-                    "                getImporter(org.citydb.ade.iur.importer.urg.CityObjectGroupPropertiesImporter.class).doImport(properties, (CityObjectGroup) parent, parentId, parentType);\n"
-                    "            }\n"
-                    "            if (properties.containsOneOf("
-                    + ",\n                    ".join(
+                group_injections = [
+                    (i, h) for i, h in self.injections.values() if BASE_TARGETS[i.default_base] == "CityObjectGroup"
+                ]
+                if inj is not group_injections[0][0]:
+                    continue  # one block for every injection of the city object groups
+                block = f"        {kw} (parent instanceof CityObjectGroup) {{\n"
+                for group_inj, group_hooks in group_injections:
+                    importer = f"{PKG}.importer.{group_hooks[0].module.prefix}.{hook_class(group_inj.default_base)}PropertiesImporter"
+                    classes_of = ",\n                    ".join(
                         "%s.%s.class"
                         % (
                             h.module.model_pkg,
                             SPECIAL_HOOK_CLASSES[h.element] if h.prop_type is None else h.model_element,
                         )
-                        for h in hooks
+                        for h in group_hooks
                     )
-                    + ")) {\n"
-                    f"                getImporter({PKG}.importer.{hooks[0].module.prefix}.{name}.class).doImport(properties, (CityObjectGroup) parent, parentId, parentType);\n"
-                    "            }\n"
-                    "            if (properties.contains(DataTypeProperty.class))\n"
-                    "                getImporter(org.citydb.ade.iur.importer.urt.CityObjectGroupPropertiesImporter.class).doImport(properties, (CityObjectGroup) parent, parentId, parentType);\n"
-                    "        }\n"
-                )
+                    block += (
+                        f"            if (properties.containsOneOf({classes_of})) {{\n"
+                        f"                getImporter({importer}.class).doImport(properties, (CityObjectGroup) parent, parentId, parentType);\n"
+                        "            }\n"
+                    )
+                lines.append(block + "        }\n")
             elif inj.default_base == "AbstractCityObjectType":
                 classes_of = ", ".join(
                     "%s.%s.class" % (h.module.model_pkg, h.model_element) for h in hooks if h.prop_type is not None
@@ -368,22 +380,21 @@ class RegistryWriter(HookWriter):
             kw = "if"
             enum = table[3:].upper()
             if BASE_TARGETS[inj.default_base] == "CityObjectGroup":
-                lines.append(
-                    f"        {kw} (parent instanceof CityObjectGroup) {{\n"
-                    "            if (adeHookTable.equals(schemaMapper.getTableName(ADETable.CITYOBJECTGROUP)))\n"
-                    "                getExporter(org.citydb.ade.iur.exporter.urg.CityObjectGroupPropertiesExporter.class).doExport((CityObjectGroup) parent, parentId, parentType, projectionFilter);\n"
-                    f"            else if (adeHookTable.equals(schemaMapper.getTableName(ADETable.{enum})))\n"
-                    f"                getExporter({PKG}.exporter.{hooks[0].module.prefix}.{name}.class).doExport((CityObjectGroup) parent, parentId, parentType, projectionFilter);\n"
-                    + (
-                        ""
-                        if "urf" in self.spec.modules
-                        else "            else if (adeHookTable.equals(schemaMapper.getTableName(ADETable.CITYOBJECTGROUP_2)))\n"
-                        "                getExporter(org.citydb.ade.iur.exporter.urf.CityObjectGroupPropertiesExporter.class).doExport((CityObjectGroup) parent, parentId, parentType, projectionFilter);\n"
+                group_injections = [
+                    (t, i, h)
+                    for t, (i, h) in self.injections.items()
+                    if BASE_TARGETS[i.default_base] == "CityObjectGroup"
+                ]
+                if inj is not group_injections[0][1]:
+                    continue  # one block for every injection of the city object groups
+                block = f"        {kw} (parent instanceof CityObjectGroup) {{\n"
+                for i, (group_table, group_inj, group_hooks) in enumerate(group_injections):
+                    exporter = f"{PKG}.exporter.{group_hooks[0].module.prefix}.{hook_class(group_inj.default_base)}PropertiesExporter"
+                    block += (
+                        f"            {'if' if i == 0 else 'else if'} (adeHookTable.equals(schemaMapper.getTableName(ADETable.{group_table[3:].upper()})))\n"
+                        f"                getExporter({exporter}.class).doExport((CityObjectGroup) parent, parentId, parentType, projectionFilter);\n"
                     )
-                    + "            else if (adeHookTable.equals(schemaMapper.getTableName(ADETable.CITYOBJECTGROUP_3)))\n"
-                    "                getExporter(org.citydb.ade.iur.exporter.urt.CityObjectGroupPropertiesExporter.class).doExport((CityObjectGroup) parent, parentId, parentType, projectionFilter);\n"
-                    "        }\n"
-                )
+                lines.append(block + "        }\n")
             else:
                 c = f"({cond})" if " || " in cond else cond
                 lines.append(

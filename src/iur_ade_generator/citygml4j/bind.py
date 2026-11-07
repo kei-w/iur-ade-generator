@@ -90,6 +90,7 @@ class BindWriter(GeneratorBase):
                 "measure": "helper.getGMLMarshaller().marshalMeasure(%s)" % var,
                 "length": "helper.getGMLMarshaller().marshalLength(%s)" % var,
                 "date": "marshaller.toCalendar(%s)" % var,
+                "time": "marshaller.toCalendar(%s)" % var,
                 "year": "marshaller.toCalendar(%s)" % var,
                 "yearMonth": "marshaller.toCalendar(%s)" % var,
                 "integer": "BigInteger.valueOf(%s)" % var,
@@ -115,7 +116,7 @@ class BindWriter(GeneratorBase):
             if j.primitive:
                 return f"        if ({g} != null)\n            {setter}({g});\n"
             return f"        {setter}({g});\n"
-        if k in ("date", "year", "yearMonth"):
+        if k in ("date", "time", "year", "yearMonth"):
             return f"        if ({g} != null)\n            {setter}(marshaller.toCalendar({g}));\n"
         if k in CODE_MARSHALLERS:
             return f"        if ({g} != null)\n            {setter}(helper.getGMLMarshaller().{CODE_MARSHALLERS[k]}({g}));\n"
@@ -177,6 +178,7 @@ class BindWriter(GeneratorBase):
                 "measure": "helper.getGMLUnmarshaller().unmarshalMeasure(%s)" % var,
                 "length": "helper.getGMLUnmarshaller().unmarshalLength(%s)" % var,
                 "date": "%s.toGregorianCalendar().toZonedDateTime().toLocalDate()" % var,
+                "time": "%s.toGregorianCalendar().toZonedDateTime().toLocalTime()" % var,
                 "year": "Year.of(%s.getYear())" % var,
                 "yearMonth": "YearMonth.of(%s.getYear(), %s.getMonth())" % (var, var),
                 "integer": "%s.intValue()" % var,
@@ -217,6 +219,11 @@ class BindWriter(GeneratorBase):
             return (
                 f"        if (src.{j.is_set}())\n"
                 f"            {s}({g}.toGregorianCalendar().toZonedDateTime().toLocalDate());\n"
+            )
+        if k == "time":
+            return (
+                f"        if (src.{j.is_set}())\n"
+                f"            {s}({g}.toGregorianCalendar().toZonedDateTime().toLocalTime());\n"
             )
         if k == "year":
             return (
@@ -457,6 +464,7 @@ class BindWriter(GeneratorBase):
                 "Measure",
                 "Length",
                 "LocalDate",
+                "LocalTime",
                 "Year",
                 "YearMonth",
                 "BigInteger",
@@ -536,6 +544,7 @@ class BindWriter(GeneratorBase):
                 "LengthType",
                 "BigInteger",
                 "LocalDate",
+                "LocalTime",
                 "Year",
                 "YearMonth",
                 "XMLGregorianCalendar",

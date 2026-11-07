@@ -37,7 +37,7 @@ class Generator(BalloonWriter, ImporterWriter):
         self.types = spec.closure(self.hooks, self.features)
         self.type_names = {t.qname for t in self.types}
         self.src = os.path.join(repo, "src", "main", "java", "org", "citydb", "ade", "iur")
-        header_src = read(os.path.join(self.src, "importer", "urt", "FeedInfoImporter.java"))
+        header_src = read(os.path.join(self.src, "importer", "ImportManager.java"))
         self.header = header_src[: header_src.index("*/") + 2]
         self.tables = OrderedDict()
         self.feature_tables = OrderedDict()

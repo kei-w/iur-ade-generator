@@ -29,6 +29,18 @@ def test_patch_then_generate_matches_the_golden_resources(mini: Path, update_gol
     # a second generation replaces the module's previous mapping and tables with the same result
     assert generate.generate(citydb, cg4j, VERSION, "urf", ["uro"]) == SUMMARY.replace("removed: 0", "removed: 4")
     assert_golden(mini / "citydb" / "resources", MINI_GOLDEN / "resources", False)
+    # a previous abstract type without properties (a self-closing tag, as in the 1.4 urt mapping) is replaced too
+    mapping = mini / "citydb" / "resources" / "database" / "schema-mapping" / "schema-mapping.xml"
+    text = mapping.read_text(encoding="utf-8")
+    sid = text.split('<schema id="')[2].split('"')[0]
+    assert sid == "ur_1" and "/urf/" in text.split(sid, 1)[1][:200]
+    old_type = (
+        '        <complexType abstract="true" id="%s_OldType" table="ur_oldtype" objectClassId="60099" '
+        'path="_Old" schema="%s"/>\n' % (sid, sid)
+    )
+    mapping.write_text(text.replace("    </complexTypes>", old_type + "    </complexTypes>"), encoding="utf-8")
+    assert generate.generate(citydb, cg4j, VERSION, "urf", ["uro"]) == SUMMARY.replace("removed: 0", "removed: 5")
+    assert_golden(mini / "citydb" / "resources", MINI_GOLDEN / "resources", False)
 
 
 def test_patch_leaves_the_patched_resources_alone(mini: Path) -> None:

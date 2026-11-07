@@ -10,9 +10,13 @@ from iur_ade_generator.errors import GeneratorError
 WRAPPER = (
     b'<?xml version="1.0" encoding="UTF-8"?>\r\n'
     b'<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">\r\n'
+    b'  <xs:import namespace="http://www.kantei.go.jp/jp/singi/tiiki/toshisaisei/itoshisaisei/iur/urg/1.4" '
+    b'schemaLocation="schemas/statisticalGrid.xsd"/>\r\n'
     b'  <xs:import namespace="https://www.geospatial.jp/iur/uro/3.1" schemaLocation="schemas/urbanObject.xsd"/>\r\n'
     b'  <xs:import namespace="http://www.kantei.go.jp/jp/singi/tiiki/toshisaisei/itoshisaisei/iur/urf/1.4" '
     b'schemaLocation="schemas/urbanFunction.xsd"/>\r\n'
+    b'  <xs:import namespace="http://www.kantei.go.jp/jp/singi/tiiki/toshisaisei/itoshisaisei/iur/urt/1.4" '
+    b'schemaLocation="schemas/publicTransit.xsd"/>\r\n'
     b"</xs:schema>\r\n"
 )
 
@@ -25,42 +29,49 @@ def fake_fork(tmp_path: Path) -> Path:
     return fork
 
 
-def test_update_urf_schema_copies_the_schema_and_rewrites_the_imports(tmp_path: Path) -> None:
+def test_update_schemas_copies_the_schemas_and_rewrites_the_imports(tmp_path: Path) -> None:
     fork = fake_fork(tmp_path)
     edition = config.EDITIONS["3.1"]
-    regen.update_urf_schema(edition, fork)
+    regen.update_schemas(edition, fork)
 
-    source = regen.urf_schema(edition).read_bytes()
-    resource = fork / "src/main/resources/org/citygml4j/ade/iur/schema/urbanFunction.xsd"
-    assert resource.read_bytes() == source, "the schema resource is the dataset schema byte for byte"
-
-    copy = (fork / "resources/ade-xjc/schemas/urbanFunction.xsd").read_bytes()
-    assert b"\r\n" not in copy
-    assert b'schemaLocation="../../schemas/gml/3.1.1/base/gml.xsd"' in copy
-    assert b'schemaLocation="../../schemas/citygml/2.0.0/cityGMLBase.xsd"' in copy
-    assert b'schemaLocation="urbanObject.xsd"' in copy
-    assert b"schemas.opengis.net" not in copy
-    assert b"../../uro/" not in copy
+    for prefix, file in regen.SCHEMA_FILES.items():
+        source = regen.module_schema(edition, prefix).read_bytes()
+        resource = fork / "src/main/resources/org/citygml4j/ade/iur/schema" / file
+        assert resource.read_bytes() == source, "the schema resource is the dataset schema byte for byte"
+        copy = (fork / "resources/ade-xjc/schemas" / file).read_bytes()
+        assert b"\r\n" not in copy
+        assert b"schemas.opengis.net" not in copy and b"../../uro/" not in copy
+    urf = (fork / "resources/ade-xjc/schemas/urbanFunction.xsd").read_bytes()
+    assert b'schemaLocation="../../schemas/gml/3.1.1/base/gml.xsd"' in urf
+    assert b'schemaLocation="../../schemas/citygml/2.0.0/cityGMLBase.xsd"' in urf
+    assert b'schemaLocation="urbanObject.xsd"' in urf
+    urg = (fork / "resources/ade-xjc/schemas/statisticalGrid.xsd").read_bytes()
+    assert b'schemaLocation="../../schemas/citygml/2.0.0/cityObjectGroup.xsd"' in urg
 
     wrapper = (fork / "resources/ade-xjc/UrbanRevitalizationADE.xsd").read_bytes()
-    assert b'namespace="https://www.geospatial.jp/iur/urf/3.1" schemaLocation="schemas/urbanFunction.xsd"' in wrapper
-    assert b"urf/1.4" not in wrapper
+    for prefix, file in regen.SCHEMA_FILES.items():
+        assert (
+            f'namespace="https://www.geospatial.jp/iur/{prefix}/3.1" schemaLocation="schemas/{file}"'.encode()
+            in wrapper
+        )
+    assert b"kantei" not in wrapper
     assert b"\r\n" in wrapper, "the line endings of the wrapper are kept"
 
     # idempotent
-    regen.update_urf_schema(edition, fork)
+    regen.update_schemas(edition, fork)
     assert (fork / "resources/ade-xjc/UrbanRevitalizationADE.xsd").read_bytes() == wrapper
 
 
 @pytest.mark.parametrize("version", ["2.0", "3.0", "3.1", "3.2"])
-def test_every_edition_has_its_urf_schema(version: str) -> None:
-    assert regen.urf_schema(config.EDITIONS[version]).exists()
+def test_every_edition_has_its_schemas(version: str) -> None:
+    for prefix in regen.SCHEMA_FILES:
+        assert regen.module_schema(config.EDITIONS[version], prefix).exists()
 
 
 def test_a_missing_schema_is_reported() -> None:
     edition = config.Edition("9.9", "x", "9.9.0", "9.9.0", "db", "ext")
     with pytest.raises(GeneratorError, match="no urf schema"):
-        regen.urf_schema(edition)
+        regen.module_schema(edition, "urf")
 
 
 def test_timestamp_javadoc_and_member_order_are_ignored_when_comparing_jaxb_files() -> None:

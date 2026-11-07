@@ -32,8 +32,8 @@ public class MiniZoneToMiniZoneImporter implements UrbanFunctionModuleImporter {
                 "values (?, ?)");
     }
 
-    public void doImport(long miniZoneId, long miniZoneId) throws CityGMLImportException, SQLException {
-        ps.setLong(1, miniZoneId);
+    public void doImport(long relatedZoneId, long miniZoneId) throws CityGMLImportException, SQLException {
+        ps.setLong(1, relatedZoneId);
         ps.setLong(2, miniZoneId);
 
         ps.addBatch();

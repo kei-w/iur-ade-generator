@@ -25,9 +25,13 @@ def test_model_field_names() -> None:
     assert naming.model_field("class") == "classifier"
     assert naming.model_field("default") == "defaultValue"
     assert naming.model_field("id") == "id"
-    assert naming.model_field("id", feature=True) == "identifier"
-    assert naming.model_field("boundedBy", feature=True) == "boundedBySurface"
-    assert naming.model_field("lod-2MultiSurface", feature=True) == "lodMinus2MultiSurface"
+    assert naming.model_field("id", "DisasterDamageType") == "identifier"
+    assert naming.model_field("boundedBy", "ZoneType") == "boundedBySurface"
+    assert naming.model_field("lod-2MultiSurface", "ZoneType") == "lodMinus2MultiSurface"
+    assert naming.model_field("description", "RouteType") == "routeDescription"
+    assert naming.model_field("name", "AgencyType") == "agencyName"
+    assert naming.model_field("name") == "name"
+    assert naming.feature_field("RouteType", "url") is None
 
 
 def test_sql_name_lowercases_and_replaces_other_characters() -> None:

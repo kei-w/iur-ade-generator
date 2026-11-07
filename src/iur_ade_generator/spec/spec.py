@@ -7,7 +7,7 @@ import os
 from collections import OrderedDict
 from collections.abc import Iterable, Sequence
 
-from ..naming import FEATURE_FIELD_NAMES, java_name, norm
+from ..naming import feature_field, java_name, norm
 from .jaxb import jaxb_properties, read_jaxb
 from .mapping import Ddl, MappingInjection, SchemaMapping, read_ddl, read_mapping
 from .model import SCALAR_KINDS, XSD_FILES, Enum, Hook, JaxbProperty, Module, Type, split_ref
@@ -130,8 +130,9 @@ class Spec:
                 else:
                     f.kind = "unsupported"
                 key = norm("clazz" if f.name == "class" else java_name(f.name))
-                if t.is_feature and f.name in FEATURE_FIELD_NAMES:
-                    key = norm(FEATURE_FIELD_NAMES[f.name])
+                renamed = feature_field(t.name, f.name) if t.is_feature else None
+                if renamed is not None:
+                    key = norm(renamed)
                 f.jaxb = props.get(key)
                 if f.kind == "enum" and f.jaxb is not None and f.jaxb.java_type in ("String", "List<String>"):
                     # ade-xjc binds enumerations with values that are no Java identifiers as plain strings

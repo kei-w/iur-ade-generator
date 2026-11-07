@@ -11,7 +11,7 @@ from typing import Protocol
 
 from ..errors import GeneratorError
 from ..naming import cap, uncap
-from ..spec import Hook, MappingInjection, MappingProperty, Module, Spec, Type
+from ..spec import Field, Hook, MappingInjection, MappingProperty, Module, Spec, Type
 from .common import PKG, render_imports, write
 
 
@@ -346,6 +346,16 @@ class CitydbBase:
         if self.dispatch_style(tbl):
             return tbl.root.importer
         return tbl.importer
+
+    def join_name(self, f: JoinRef) -> str:
+        """Name of the join table statement of a field: its model name, prefixed with the owner type where the merged
+        row types of a table hierarchy have fields of the same name (urt Frequency/StopTime trip -> frequencyTrip, stopTimeTrip)."""
+        owner = f.owner if isinstance(f, Field) else None
+        if owner is None:
+            return f.model_name
+        group = [rt for t in self.table_of(owner).root.all_tables() for rt in t.row_types if rt is not owner]
+        others = [rt for rt in group if any(x.model_name == f.model_name for x in rt.fields)]
+        return uncap(owner.model) + cap(f.model_name) if others else f.model_name
 
     def join_importer(self, owner: Table | str, f: JoinRef) -> str:
         """Importer of the join table of a reference to city objects (urf:target), to members (urf nested features) or

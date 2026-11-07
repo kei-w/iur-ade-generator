@@ -7,6 +7,7 @@ import re
 
 from ..naming import cap
 from ..spec import ABSTRACT_FEATURE_BASES, Enum, Hook, Type
+from ..spec.model import MODEL_TYPES
 from ..templates import render
 from .common import IMPORTS, VISITORS, GeneratorBase, infer_imports, render_imports
 
@@ -182,7 +183,7 @@ class ModelWriter(GeneratorBase):
 """)
             imports |= {IMPORTS[k] for k in VISITORS}
         body = "\n".join(parts)
-        imports |= infer_imports("".join(fields))
+        imports |= self.field_imports(t, fields)
         self.out(
             os.path.join(self.model_dir(t.module), name + ".java"),
             render(
@@ -230,7 +231,7 @@ class ModelWriter(GeneratorBase):
         parts.extend(methods)
         parts.append(self.copy_methods(t, "        super.copyTo(copy, copyBuilder);\n" if t.base else ""))
         body = "\n".join(parts)
-        imports |= infer_imports("".join(fields))
+        imports |= self.field_imports(t, fields)
         if t.base is not None and t.base.module is not t.module:
             imports.add(f"{t.base.module.model_pkg}.{t.base.model}")
         self.out(
@@ -266,9 +267,16 @@ class ModelWriter(GeneratorBase):
             ),
         )
 
+    def field_imports(self, t: Type, fields: list[str]) -> set[str]:
+        """Imports of the field declarations; a model class of the module is not shadowed by an imported class of the
+        same simple name (urt PointProperty) unless a field is of the imported type (urt Stop.point)."""
+        own = {i.model for i in self.items if i.module is t.module}
+        used = {MODEL_TYPES[f.kind] for f in t.fields if f.kind in MODEL_TYPES}
+        return infer_imports("".join(fields), exclude=own - used)
+
     def gen_enum(self, e: Enum) -> None:
         consts = ",\n".join(
-            '    %s("%s")' % (re.sub(r"^(?=[0-9])", "_", re.sub(r"[^A-Za-z0-9_]", "_", v).upper()), v) for v in e.values
+            '    %s("%s")' % (re.sub(r"^(?=[0-9])", "_", re.sub(r"\W", "_", v).upper()), v) for v in e.values
         )
         self.out(
             os.path.join(self.model_dir(e.module), e.model + ".java"),

@@ -19,10 +19,9 @@ from .errors import GeneratorError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_FILE = "iur-ade.toml"
+# the generated modules of every edition, in generation order (urf, urg and urt refer to uro types)
+MODULES = ("uro", "urf", "urg", "urt")
 ENV_PREFIX = "IUR_ADE_"
-
-# JAXB packages of the modules that stay at i-UR 1.4 in every edition
-LEGACY_PACKAGES = ("jp.go.kantei.iur._1_4.urg", "jp.go.kantei.iur._1_4.urt")
 
 
 @dataclass(frozen=True)
@@ -49,7 +48,7 @@ class Edition:
     @property
     def jaxb_packages(self) -> tuple[str, ...]:
         """The packages ade-xjc generates for the edition, copied into the citygml4j fork."""
-        return (f"{self.jaxb_package}.uro", f"{self.jaxb_package}.urf", *LEGACY_PACKAGES)
+        return tuple(f"{self.jaxb_package}.{module}" for module in MODULES)
 
     def namespace(self, module: str) -> str:
         return f"https://www.geospatial.jp/iur/{module}/{self.version}"

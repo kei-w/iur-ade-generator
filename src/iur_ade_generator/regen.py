@@ -2,9 +2,9 @@
 
 Steps, as the PoC script ``regen_edition.sh`` ran them:
 
-0. the urf schema of the edition into the citygml4j fork (the original as schema resource, a copy with relative
-   imports of the GML/CityGML schemas for ade-xjc and the generators);
-1. the JAXB classes with ade-xjc (all four packages from one run, the urt classes refer to the urf feature classes);
+0. the urf, urg and urt schemas of the edition into the citygml4j fork (the original as schema resource, a copy with
+   relative imports of the GML/CityGML schemas for ade-xjc and the generators);
+1. the JAXB classes with ade-xjc (all four packages from one run);
 2. the schema mapping (uro patches, generated urf mapping) and the code of both forks, their builds and the
    Importer/Exporter extension folder;
 3. the fixture, a fresh verification database, the fixture round trip and the XSD validation.
@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import binding, compare, database, fixture
+from . import config as config_modules
 from .citydb import generator as citydb_generator
 from .citygml4j import generator as citygml4j_generator
 from .config import REPO_ROOT, Config, Edition
@@ -31,7 +32,8 @@ from .tools import ade_xjc, git, gradle, impexp
 
 log = logging.getLogger(__name__)
 
-MODULES = "uro,urf"
+MODULES = ",".join(config_modules.MODULES)
+SCHEMA_FILES = {"urf": "urbanFunction.xsd", "urg": "statisticalGrid.xsd", "urt": "publicTransit.xsd"}
 ROUNDTRIP = REPO_ROOT / "java" / "roundtrip"
 FIXTURES = REPO_ROOT / "fixtures"
 CITYGML_SCHEMAS = (
@@ -51,39 +53,47 @@ CITYGML_SCHEMAS = (
 RELATIVE_IMPORTS = {
     "http://schemas.opengis.net/gml/3.1.1/base/gml.xsd": "../../schemas/gml/3.1.1/base/gml.xsd",
     "http://schemas.opengis.net/citygml/2.0/cityGMLBase.xsd": "../../schemas/citygml/2.0.0/cityGMLBase.xsd",
+    "http://schemas.opengis.net/citygml/cityobjectgroup/2.0/cityObjectGroup.xsd": (
+        "../../schemas/citygml/2.0.0/cityObjectGroup.xsd"
+    ),
 }
-WRAPPER_IMPORT = re.compile(rb'namespace="[^"]*/urf/[0-9.]*" schemaLocation="schemas/urbanFunction.xsd"')
 GENERATED_STAMP = "// Generated:"
 
 
-def urf_schema(edition: Edition) -> Path:
-    path = REPO_ROOT / "schemas" / "iur" / "urf" / edition.version / "urbanFunction.xsd"
+def module_schema(edition: Edition, prefix: str) -> Path:
+    """The schema of a generated module (besides uro) of the edition in this repository."""
+    path = REPO_ROOT / "schemas" / "iur" / prefix / edition.version / SCHEMA_FILES[prefix]
     if not path.exists():
-        raise GeneratorError(f"no urf schema for {edition.version}: {path}")
+        raise GeneratorError(f"no {prefix} schema for {edition.version}: {path}")
     return path
 
 
-def update_urf_schema(edition: Edition, citygml4j: Path) -> None:
-    """Step 0: the urf schema of the edition in the citygml4j fork."""
-    source = urf_schema(edition)
+def update_schemas(edition: Edition, citygml4j: Path) -> None:
+    """Step 0: the urf, urg and urt schemas of the edition in the citygml4j fork: the original as schema resource,
+    a copy with relative imports of the GML/CityGML schemas for ade-xjc and the generators, and the namespaces of the
+    wrapper schema ade-xjc compiles."""
     resource = citygml4j / "src" / "main" / "resources" / "org" / "citygml4j" / "ade" / "iur" / "schema"
-    shutil.copyfile(source, resource / "urbanFunction.xsd")
-    text = source.read_bytes().decode("utf-8").replace("\r\n", "\n")
-    for absolute, relative in RELATIVE_IMPORTS.items():
-        text = text.replace(f'schemaLocation="{absolute}"', f'schemaLocation="{relative}"')
-    text = text.replace(
-        f'schemaLocation="../../uro/{edition.version}/urbanObject.xsd"', 'schemaLocation="urbanObject.xsd"'
-    )
     ade_xjc_resources = citygml4j / "resources" / "ade-xjc"
-    (ade_xjc_resources / "schemas" / "urbanFunction.xsd").write_text(text, encoding="utf-8", newline="\n")
     wrapper = ade_xjc_resources / "UrbanRevitalizationADE.xsd"
     data = wrapper.read_bytes()
-    patched = WRAPPER_IMPORT.sub(
-        f'namespace="{edition.namespace("urf")}" schemaLocation="schemas/urbanFunction.xsd"'.encode(), data
-    )
-    if patched != data:
-        wrapper.write_bytes(patched)
-    log.info("urf %s schema copied into %s", edition.version, citygml4j.name)
+    for prefix, file in SCHEMA_FILES.items():
+        source = module_schema(edition, prefix)
+        shutil.copyfile(source, resource / file)
+        text = source.read_bytes().decode("utf-8").replace("\r\n", "\n")
+        for absolute, relative in RELATIVE_IMPORTS.items():
+            text = text.replace(f'schemaLocation="{absolute}"', f'schemaLocation="{relative}"')
+        text = text.replace(
+            f'schemaLocation="../../uro/{edition.version}/urbanObject.xsd"', 'schemaLocation="urbanObject.xsd"'
+        )
+        (ade_xjc_resources / "schemas" / file).write_text(text, encoding="utf-8", newline="\n")
+        data = re.sub(
+            rb'namespace="[^"]*/%s/[0-9.]*" schemaLocation="schemas/%s"' % (prefix.encode(), file.encode()),
+            f'namespace="{edition.namespace(prefix)}" schemaLocation="schemas/{file}"'.encode(),
+            data,
+        )
+    if data != wrapper.read_bytes():
+        wrapper.write_bytes(data)
+    log.info("urf, urg and urt %s schemas copied into %s", edition.version, citygml4j.name)
 
 
 def generate_jaxb(config: Config, edition: Edition, citygml4j: Path, out: Path) -> None:
@@ -123,7 +133,7 @@ def generate_jaxb(config: Config, edition: Edition, citygml4j: Path, out: Path) 
         for f in files:
             (target / f.name).write_bytes(f.read_bytes().replace(b"\r\n", b"\n"))
         log.info("JAXB classes of %s: %d files", package, len(files))
-    shutil.rmtree(src_gen / "jp" / "go" / "kantei" / "iur" / "_1_4" / "urf", ignore_errors=True)
+    shutil.rmtree(src_gen / "jp" / "go", ignore_errors=True)  # the 1.4 packages of the hand-written modules
     restore_timestamp_only_changes(citygml4j)
 
 
@@ -153,14 +163,15 @@ def restore_timestamp_only_changes(citygml4j: Path) -> None:
 
 
 def regenerate_code(config: Config, edition: Edition, citygml4j: Path, citydb: Path, out: Path) -> None:
-    """Step 2: the schema mapping and the code of both forks, built and published (the patches and the urf
-    generation are idempotent and start from the committed mapping)."""
+    """Step 2: the schema mapping and the code of both forks, built and published (the patches and the mapping
+    generation of urf, urg and urt are idempotent and start from the committed mapping)."""
     version = edition.version
     git(citydb, "checkout", "-q", "--", "resources/database")
     mapping_patch.main([str(citydb), str(citygml4j), version, "uro"])
     citygml4j_generator.main([str(citygml4j), str(citydb), version, "all", MODULES])
     gradle(citygml4j, "publishToMavenLocal", log_file=out / f"citygml4j{edition.nn}_build.log")
-    mapping_generate.main([str(citydb), str(citygml4j), version, "urf", "uro"])
+    for prefix in SCHEMA_FILES:
+        mapping_generate.main([str(citydb), str(citygml4j), version, prefix, "uro"])
     citydb_generator.main([str(citydb), str(citygml4j), version, "all", MODULES])
     gradle(citydb, "installDist", log_file=out / f"citydb{edition.nn}_build.log")
     jar = citydb / "build" / "install" / "iur-ade" / "lib" / f"iur-ade-citydb-{edition.citydb_version}.jar"
@@ -250,7 +261,7 @@ def validate(config: Config, citygml4j: Path, files: Sequence[Path], out: Path) 
     """XSD validation against the CityGML 2.0 schemas and the module schemas of the fork."""
     module_schemas = citygml4j / "resources" / "ade-xjc" / "schemas"
     schemas = [config.tools.citygml_schemas / f"{name}.xsd" for name in CITYGML_SCHEMAS]
-    schemas += [module_schemas / f"{name}.xsd" for name in ("urbanObject", "urbanFunction")]
+    schemas += [module_schemas / name for name in ("urbanObject.xsd", *SCHEMA_FILES.values())]
     valid = True
     for f in files:
         args = " ".join(p.as_posix() for p in (f, *schemas))
@@ -277,7 +288,7 @@ def regen(config: Config, version: str, *, skip_jaxb: bool = False, skip_db: boo
     out.mkdir(parents=True, exist_ok=True)
     log.info("== %s: branch %s", version, edition.branch)
     citygml4j, citydb = checkout(config, edition)
-    update_urf_schema(edition, citygml4j)
+    update_schemas(edition, citygml4j)
     if skip_jaxb:
         log.info("JAXB classes: kept as committed (--skip-jaxb)")
     else:

@@ -27,11 +27,15 @@ from __future__ import annotations
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
 GML = "http://www.opengis.net/gml"
+XLINK = "http://www.w3.org/1999/xlink"
+# GML array properties (curveMembers) the Importer/Exporter writes as repeated single properties (curveMember)
+ARRAY_PROPERTIES = {"curveMembers", "surfaceMembers", "pointMembers", "solidMembers"}
+GROUP = "http://www.opengis.net/citygml/cityobjectgroup/2.0"
 CORE = "http://www.opengis.net/citygml/2.0"
 GENERICS = "http://www.opengis.net/citygml/generics/2.0"
 STD_NS_PREFIXES = (
@@ -53,6 +57,8 @@ class Options:
     ignore_elements: set[str] = field(default_factory=set)
     ignore_attributes: set[str] = field(default_factory=set)
     strip_ids: bool = False
+    geometries: dict[str, ET.Element] = field(default_factory=dict)
+    """gml:id -> GML element of the file being canonicalised (--db: xlinks to geometries are resolved)."""
     unordered: set[str] = field(default_factory=set)
     """Elements whose children are compared as multisets."""
     unordered_generics: bool = False
@@ -104,27 +110,44 @@ def norm_text(t: str | None) -> str:
     return " ".join(norm_token(x) for x in t.split())
 
 
+def child_canons(el: ET.Element, strict: bool, o: Options) -> Iterator[Canon]:
+    for c in el:
+        if local(c.tag) in o.ignore_elements and not (strict and ns_of(c.tag) not in (CORE, GML)):
+            continue
+        if o.strip_ids and ns_of(c.tag) == GML and local(c.tag) in ARRAY_PROPERTIES:
+            # gml:curveMembers etc. are exported as one gml:curveMember per geometry
+            for g in c:
+                yield c.tag[:-1], (), "", (canon(g, False, o),)
+        else:
+            yield canon(c, strict, o)
+
+
 def canon(el: ET.Element, strict: bool, o: Options) -> Canon:
     # GML geometry embedded in ADE properties is written by the Importer/Exporter's
     # geometry machinery, so with --db it is normalised like standard content.
     if strict and o.strip_ids and ns_of(el.tag) == GML:
         strict = False
-    attrs = list(el.attrib.items())
+    # a shared geometry is written inline where the Importer/Exporter meets it first and referenced by xlink
+    # elsewhere: a property that only refers to a geometry of the file is compared as if it held it
+    resolved = o.geometries.get(el.get(f"{{{XLINK}}}href", "").lstrip("#")) if o.strip_ids and len(el) == 0 else None
+    attrs = [(k, v) for k, v in el.attrib.items() if resolved is None or k != f"{{{XLINK}}}href"]
     if not strict:
         attrs = [
             (k, v)
             for k, v in attrs
             if local(k) not in o.ignore_attributes and not (o.strip_ids and k == f"{{{GML}}}id")
         ]
+    if o.strip_ids:
+        # the Importer/Exporter writes xlinks as "#id"; some data (the i-UR samples) omits the "#"
+        attrs = [(k, "#" + v.lstrip("#") if k == f"{{{XLINK}}}href" else v) for k, v in attrs]
     # ADE feature types nest standard city object content (creationDate, gml:boundedBy), so the
     # ignored elements apply inside ADE content as well
-    children = tuple(
-        canon(c, strict, o)
-        for c in el
-        if local(c.tag) not in o.ignore_elements or (strict and ns_of(c.tag) not in (CORE, GML))
-    )
+    children = (canon(resolved, False, o),) if resolved is not None else tuple(child_canons(el, strict, o))
     if not strict and local(el.tag) in o.unordered:
         children = tuple(sorted(children))
+    if not strict and o.strip_ids and len(children) > 1 and all(c[0] == f"{{{GML}}}pos" for c in children):
+        # the Importer/Exporter writes the positions of a ring as one posList
+        children = ((f"{{{GML}}}posList", (), " ".join(c[2] for c in children), ()),)
     return el.tag, tuple(sorted(attrs)), norm_text(el.text), children
 
 
@@ -160,11 +183,19 @@ def diff_paths(a: Canon, b: Canon, path: str, out: list[str]) -> None:
 
 
 def city_objects(root: ET.Element) -> dict[str, ET.Element]:
+    """The top-level city objects by gml:id, and the objects written inline as group members (the Importer/Exporter
+    exports them as top-level objects referenced by xlink)."""
     out = {}
-    for member in root.iter(f"{{{CORE}}}cityObjectMember"):
-        for obj in member:
-            out[obj.get(f"{{{GML}}}id", "")] = obj
+    for tag in (f"{{{CORE}}}cityObjectMember", f"{{{GROUP}}}groupMember"):
+        for member in root.iter(tag):
+            for obj in member:
+                out[obj.get(f"{{{GML}}}id", "")] = obj
     return out
+
+
+def geometries(root: ET.Element) -> dict[str, ET.Element]:
+    """The GML elements with a gml:id (the targets of geometry xlinks)."""
+    return {el.get(f"{{{GML}}}id", ""): el for el in root.iter() if ns_of(el.tag) == GML and el.get(f"{{{GML}}}id")}
 
 
 def split(obj: ET.Element, o: Options) -> tuple[tuple[Canon, ...], Canon]:
@@ -199,6 +230,7 @@ def main(argv: Sequence[str]) -> int:
     ta = ET.parse(a).getroot()
     tb = ET.parse(b).getroot()
     oa, ob = city_objects(ta), city_objects(tb)
+    ga_index, gb_index = geometries(ta), geometries(tb)
     ade_errors = std_errors = reordered = 0
 
     missing = set(oa) - set(ob)
@@ -212,7 +244,9 @@ def main(argv: Sequence[str]) -> int:
 
     ade_total = 0
     for gid in sorted(set(oa) & set(ob)):
+        o.geometries = ga_index
         ade_a, std_a = split(oa[gid], o)
+        o.geometries = gb_index
         ade_b, std_b = split(ob[gid], o)
         ade_total += len(ade_a)
         if ade_a != ade_b:

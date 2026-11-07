@@ -63,6 +63,12 @@ GENERATORS: dict[str, tuple[Callable[[list[str]], int | None], str, str]] = {
         "<citygml4j repo> <citydb repo> <citygml4j version> <citydb version> <version>",
         "add the 'ADE feature types' section to both CHANGES.md files (idempotent)",
     ),
+    "changes-urgt": (
+        changes.urgt_main,
+        "<citygml4j repo> <citydb repo> <citygml4j version> <citydb version> <version> "
+        "<urg feature types> <urg data types> <urt feature types> <urt data types>",
+        "add the 'Statistical Grid and Public Transit modules' section to both CHANGES.md files (idempotent)",
+    ),
     "changes-urf": (
         changes.urf_main,
         "<citygml4j repo> <citydb repo> <citygml4j version> <citydb version> <version> <feature types> <data types>",

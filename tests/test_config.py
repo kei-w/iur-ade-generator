@@ -89,8 +89,8 @@ def test_edition_names() -> None:
     assert edition.jaxb_packages == (
         "jp.geospatial.iur._3_1.uro",
         "jp.geospatial.iur._3_1.urf",
-        "jp.go.kantei.iur._1_4.urg",
-        "jp.go.kantei.iur._1_4.urt",
+        "jp.geospatial.iur._3_1.urg",
+        "jp.geospatial.iur._3_1.urt",
     )
     assert edition.namespace("urf") == "https://www.geospatial.jp/iur/urf/3.1"
     assert edition.fixture_name == "iur31_all.gml"

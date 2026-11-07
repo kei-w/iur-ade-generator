@@ -69,7 +69,7 @@ class Generator(ModelWriter, BindWriter, WalkerWriter, ModuleWriter):
             for f in t.dropped:
                 log.warning("dropped unsupported field %s.%s (%s)", t.model, f.name, f.xsd_type)
         self.src = os.path.join(repo, "src", "main", "java", "org", "citygml4j", "ade", "iur")
-        header_src = read(os.path.join(self.src, "model", "uro", "FiscalYearOfPublicationProperty.java"))
+        header_src = read(os.path.join(self.src, "UrbanRevitalizationADEContext.java"))
         self.header = header_src[: header_src.index("*/") + 2]
         self.written = set()
         self.walker_geometry = False

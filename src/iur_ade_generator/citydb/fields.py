@@ -139,7 +139,7 @@ class FieldWriter(CitydbBase):
             return [col], set_code, f"        ps.setNull({i}, Types.NULL);\n", ""
         if k in ("multiCurve", "multiPoint"):
             col = required(p.inline_column, "inlineColumn")
-            name = f.model_name
+            name = safe_var(f.model_name, var)
             cls = cap(k)
             set_code = (
                 f"        GeometryObject {name} = null;\n        if ({g} != null) {{\n"
@@ -217,7 +217,7 @@ class FieldWriter(CitydbBase):
             return [ref_col, inline_col], set_code, null_code, ""
         if k == "point":
             col = required(p.inline_column, "inlineColumn")
-            name = f.model_name
+            name = safe_var(f.model_name, var)
             set_code = (
                 f"        GeometryObject {name} = null;\n        if ({g} != null)\n            {name} = geometryConverter.getPoint({g});\n\n"
                 f"        if ({name} != null)\n            ps.setObject({i}, helper.getDatabaseAdapter().getGeometryConverter().getDatabaseObject({name}, connection));\n        else\n"
@@ -307,6 +307,15 @@ class FieldWriter(CitydbBase):
                 f"        ps.setNull({i}, Types.DATE);\n",
                 "",
             )
+        if k == "time":
+            # a time of day in a timestamp column, on the epoch day (the Importer/Exporter has no time type)
+            return (
+                [col],
+                f"        if ({g} != null)\n            ps.setTimestamp({i}, Timestamp.valueOf(LocalDateTime.of(LocalDate.ofEpochDay(0), {g})));\n"
+                f"        else\n            ps.setNull({i}, Types.TIMESTAMP_WITH_TIMEZONE);\n",
+                f"        ps.setNull({i}, Types.TIMESTAMP_WITH_TIMEZONE);\n",
+                "",
+            )
         if k == "year":
             return (
                 [col],
@@ -348,7 +357,7 @@ class FieldWriter(CitydbBase):
             target = f.nested
             tbl = self.table_of(target)
             name = safe_var(f.model_name, var)
-            ps = "ps" + cap(f.model_name)
+            ps = "ps" + cap(self.join_name(f))
             setter, getter = "%s.set%s" % (var, cap(f.model_name)), "%s.get%s" % (var, cap(f.model_name))
             prop_model = f.property_type.model
             target_col = p.require_join_table().target_column
@@ -380,7 +389,7 @@ class FieldWriter(CitydbBase):
             )
         if k == "cityObjectRef" or (f.is_member_reference and p.join_table is not None):
             name = f.model_name
-            ps = "ps" + cap(name)
+            ps = "ps" + cap(self.join_name(f))
             prop_model = f.property_type.model
             add = f"{var}.get{cap(name)}().add({name}Property)" if f.multi else f"{var}.set{cap(name)}({name}Property)"
             return [], (
@@ -575,6 +584,11 @@ class FieldWriter(CitydbBase):
                 [col],
                 f'                Date {name} = rs.getDate("{col}");\n                if (!rs.wasNull())\n                    {setter}({name}.toLocalDate());\n',
             )
+        if k == "time":
+            return (
+                [col],
+                f'                Time {name} = rs.getTime("{col}");\n                if (!rs.wasNull())\n                    {setter}({name}.toLocalTime());\n',
+            )
         if k == "year":
             return (
                 [col],
@@ -644,6 +658,8 @@ class FieldWriter(CitydbBase):
                 imports.add("org.citygml4j.model.gml.measures.Length")
             if f.kind == "year":
                 imports.add("java.time.LocalDate")
+            if f.kind == "time":
+                imports |= {"java.time.LocalDate", "java.time.LocalDateTime"}
         return cols, sets, nulls, posts, i
 
     # -------------------------------------------------------------- exporter

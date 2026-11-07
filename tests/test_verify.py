@@ -39,3 +39,32 @@ def test_summary_classification() -> None:
     std_only = SUMMARY.format(ade=0, order=0, std=1)
     assert not verify.CLEAN.search(std_only) and verify.CLEAN_DB.search(std_only)
     assert not verify.NO_ADE_DIFFERENCE.search(SUMMARY.format(ade=1, order=0, std=0))
+
+
+SAMPLE = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n<core:CityModel xmlns:core="http://www.opengis.net/citygml/2.0" '
+    'xmlns:grp="http://www.opengis.net/citygml/cityobjectgroup/2.0" xmlns:gml="http://www.opengis.net/gml" '
+    'xmlns:urt="https://www.geospatial.jp/iur/urt/3.1">\n'
+    "  <core:cityObjectMember>\n    <grp:CityObjectGroup>\n      <grp:groupMember>\n"
+    '        <urt:Route gml:id="route1"/>\n      </grp:groupMember>\n      <grp:groupMember>\n'
+    "        <urt:Stop>\n        </urt:Stop>\n      </grp:groupMember>\n"
+    "    </grp:CityObjectGroup>\n  </core:cityObjectMember>\n</core:CityModel>\n"
+)
+
+
+def test_with_ids_gives_every_city_object_a_gml_id(tmp_path: Path) -> None:
+    f = tmp_path / "PublicTransit.xml"
+    f.write_text(SAMPLE, encoding="utf-8")
+    copy = verify.with_ids(f, tmp_path)
+    assert copy == tmp_path / "PublicTransit.in.xml"
+    text = copy.read_text(encoding="utf-8")
+    assert '<grp:CityObjectGroup gml:id="PublicTransit_1">' in text
+    assert '<urt:Route gml:id="route1"/>' in text, "existing ids are kept"
+    assert '<urt:Stop gml:id="PublicTransit_2">' in text
+    assert verify.with_ids(copy, tmp_path) == copy, "a file whose objects all have ids is used as it is"
+
+
+def test_gml_files_takes_xml_files_in_folders(tmp_path: Path) -> None:
+    for name in ("a.xml", "b.gml", "c.txt"):
+        (tmp_path / name).write_text("", encoding="utf-8")
+    assert [f.name for f in verify.gml_files([tmp_path])] == ["a.xml", "b.gml"]

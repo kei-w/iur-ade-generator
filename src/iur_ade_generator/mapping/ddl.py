@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from pathlib import Path
 
 from ..naming import unique
@@ -231,14 +231,14 @@ def remove_blocks(text: str, tables: set[str], sequences: set[str]) -> str:
     return text
 
 
-def remove_foreign_columns(create: str, drop: str, tables: set[str]) -> tuple[str, str]:
+def remove_foreign_columns(create: str, drop: str, tables: set[str], keep: Collection[str] = ()) -> tuple[str, str]:
     """Drop the foreign key columns (with their constraints and indexes) that tables of other modules hold for the given
-    (previous) tables of the module."""
+    (previous) tables of the module; the tables in ``keep`` are left alone."""
     for m in re.finditer(
         r"ALTER TABLE (\w+) ADD CONSTRAINT (\w+) FOREIGN KEY \((\w+)\)\nREFERENCES (\w+) \(id\)[^;]*;\n\n", create
     ):
         table, constraint, column, ref = m.groups()
-        if ref not in tables or table in tables:
+        if ref not in tables or table in tables or table in keep:
             continue
         create = create.replace(m.group(0), "")
         create = re.sub(r"^    %s \w+[^\n]*,\n" % column, "", create, flags=re.M)

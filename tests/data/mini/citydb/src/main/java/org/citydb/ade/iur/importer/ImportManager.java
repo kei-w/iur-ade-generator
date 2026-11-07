@@ -3,7 +3,7 @@
  * (the generators copy this license header into the generated files)
  */
 
-package org.citydb.ade.iur.importer.urt;
+package org.citydb.ade.iur.importer;
 
-public class FeedInfoImporter {
+public class ImportManager {
 }

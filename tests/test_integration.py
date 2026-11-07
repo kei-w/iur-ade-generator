@@ -37,10 +37,11 @@ def test_the_generators_reproduce_the_committed_code(
     citygml4j, citydb = regen.checkout(cfg, edition)
     g, d = str(citygml4j), str(citydb)
     try:
-        regen.update_urf_schema(edition, citygml4j)
+        regen.update_schemas(edition, citygml4j)
         mapping_patch.main([d, g, version, "uro"])
         citygml4j_generator.main([g, d, version, "all", regen.MODULES])
-        mapping_generate.main([d, g, version, "urf", "uro"])
+        for prefix in regen.SCHEMA_FILES:
+            mapping_generate.main([d, g, version, prefix, "uro"])
         citydb_generator.main([d, g, version, "all", regen.MODULES])
         path = tmp_path_factory.mktemp("fixture") / edition.fixture_name
         fixture.main([g, d, version, "all", str(path), regen.MODULES])

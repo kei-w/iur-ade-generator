@@ -46,8 +46,8 @@ def test_citygml4j_model_and_bind_classes(mini: Path, update_golden: bool) -> No
         gen.gen_marshaller(m)
         gen.gen_unmarshaller(m)
     src = mini / "citygml4j" / "src" / "main" / "java" / "org" / "citygml4j" / "ade" / "iur"
-    # the stub of the hand-written class whose header the generator copies is not generated
-    (src / "model" / "uro" / "FiscalYearOfPublicationProperty.java").unlink()
+    # the stub of the hand-written class whose license header the generator copies is not generated
+    (src / "UrbanRevitalizationADEContext.java").unlink()
     assert_golden(src, MINI_GOLDEN / "citygml4j", update_golden)
 
 
@@ -103,5 +103,5 @@ def test_citydb_tables_and_classes(mini: Path, update_golden: bool) -> None:
     assert hook_importers == [("ur_building", "BuildingPropertiesImporter")]
     assert hook_exporters == [("ur_building", "BuildingPropertiesExporter")]
     src = mini / "citydb" / "src" / "main" / "java" / "org" / "citydb" / "ade" / "iur"
-    (src / "importer" / "urt" / "FeedInfoImporter.java").unlink()
+    (src / "importer" / "ImportManager.java").unlink()
     assert_golden(src, MINI_GOLDEN / "citydb", update_golden)

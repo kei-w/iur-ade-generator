@@ -27,6 +27,7 @@ SCALAR_KINDS = {
     "xs:double": "double",
     "xs:boolean": "boolean",
     "xs:date": "date",
+    "xs:time": "time",
     "xs:gYear": "year",
     "xs:gYearMonth": "yearMonth",
     "gml:CodeType": "code",
@@ -69,6 +70,7 @@ MODEL_TYPES = {
     "double": "Double",
     "boolean": "Boolean",
     "date": "LocalDate",
+    "time": "LocalTime",
     "year": "Year",
     "yearMonth": "YearMonth",
     "code": "Code",
@@ -152,8 +154,9 @@ FEATURE_BASES = {
 ABSTRACT_FEATURE_BASES = {"core:AbstractCityObjectType", "bldg:AbstractBuildingType", "gml:AbstractFeatureType"}
 # modules whose nested feature types are city object members as well: every i-UR urban function feature is written as a
 # cityObjectMember in the PLATEAU datasets (e.g. urf:SpecialUrbanRenaissanceDistrict, which urf:UrbanRenewalProject also
-# nests), whereas the nested uro features (boundary surfaces, construction installations) never are
-MEMBER_FEATURE_MODULES = {"urf"}
+# nests), the statistical grids are members and the public transit features are group members referring to each other
+# by xlink, whereas the nested uro features (boundary surfaces, construction installations) never are
+MEMBER_FEATURE_MODULES = {"urf", "urg", "urt"}
 
 # the i-UR modules: XSD prefix -> Java name used by the citygml4j and citydb class names
 MODULE_NAMES = {"uro": "UrbanObject", "urf": "UrbanFunction", "urg": "StatisticalGrid", "urt": "PublicTransit"}
@@ -239,7 +242,7 @@ class Field:
     @property
     def model_name(self) -> str:
         """The name of the model accessor."""
-        return model_field(self.name, self.owner is not None and self.owner.is_feature)
+        return model_field(self.name, self.owner.name if self.owner is not None and self.owner.is_feature else None)
 
     @property
     def property_type(self) -> Type:
