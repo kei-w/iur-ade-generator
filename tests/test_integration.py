@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from iur_ade_generator import config, fixture, gen_citydb, regen
+from iur_ade_generator import config, fixture, regen
+from iur_ade_generator.citydb import generator as citydb_generator
 from iur_ade_generator.citygml4j import generator as citygml4j_generator
 from iur_ade_generator.mapping import generate as mapping_generate
 from iur_ade_generator.mapping import patch as mapping_patch
@@ -40,7 +41,7 @@ def test_the_generators_reproduce_the_committed_code(
         mapping_patch.main([d, g, version, "uro"])
         citygml4j_generator.main([g, d, version, "all", regen.MODULES])
         mapping_generate.main([d, g, version, "urf", "uro"])
-        gen_citydb.main([d, g, version, "all", regen.MODULES])
+        citydb_generator.main([d, g, version, "all", regen.MODULES])
         path = tmp_path_factory.mktemp("fixture") / edition.fixture_name
         fixture.main([g, d, version, "all", str(path), regen.MODULES])
         assert git(citygml4j, "status", "--short") == ""

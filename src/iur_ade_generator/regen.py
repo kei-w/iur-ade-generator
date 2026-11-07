@@ -20,7 +20,8 @@ import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
-from . import binding, compare, database, fixture, gen_citydb
+from . import binding, compare, database, fixture
+from .citydb import generator as citydb_generator
 from .citygml4j import generator as citygml4j_generator
 from .config import REPO_ROOT, Config, Edition
 from .errors import GeneratorError
@@ -160,7 +161,7 @@ def regenerate_code(config: Config, edition: Edition, citygml4j: Path, citydb: P
     citygml4j_generator.main([str(citygml4j), str(citydb), version, "all", MODULES])
     gradle(citygml4j, "publishToMavenLocal", log_file=out / f"citygml4j{edition.nn}_build.log")
     mapping_generate.main([str(citydb), str(citygml4j), version, "urf", "uro"])
-    gen_citydb.main([str(citydb), str(citygml4j), version, "all", MODULES])
+    citydb_generator.main([str(citydb), str(citygml4j), version, "all", MODULES])
     gradle(citydb, "installDist", log_file=out / f"citydb{edition.nn}_build.log")
     jar = citydb / "build" / "install" / "iur-ade" / "lib" / f"iur-ade-citydb-{edition.citydb_version}.jar"
     if not jar.exists():

@@ -12,7 +12,8 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from . import binding, compare, config, fixture, gen_citydb, update_changes_features, update_changes_urf
+from . import binding, compare, config, fixture, update_changes_features, update_changes_urf
+from .citydb import generator as citydb_generator
 from .citygml4j import generator as citygml4j_generator
 from .errors import GeneratorError
 from .mapping import generate as mapping_generate
@@ -43,7 +44,7 @@ GENERATORS: dict[str, tuple[Callable[[list[str]], int | None], str, str]] = {
         "generate the model classes, (un)marshallers, walkers and modules of iur-ade-citygml4j",
     ),
     "gen-citydb": (
-        gen_citydb.main,
+        citydb_generator.main,
         "<citydb repo> <citygml4j repo> <version> <preset: all|phaseA|phaseB|phaseC> [modules: uro,urf]",
         "generate the importers, exporters, join table importers and registrations of iur-ade-citydb",
     ),
