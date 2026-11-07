@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- The generators are typed packages checked by mypy in strict mode: `spec` (the specification model as dataclasses
+  read from the XSDs, the JAXB classes and the schema mapping), `mapping` (the ADE Manager patches, the generated urf
+  mapping and the DDL editing), `citygml4j` (model classes, bind code, walkers, module class), `citydb` (table model,
+  field code, importers, exporters, join tables, hook classes, registrations, balloon handler) and the modules
+  `naming`, `binding`, `fixture`, `compare` and `changes`; `compare` keeps its options in a dataclass. Unit tests cover the
+  specification model and the generators on a small uro/urf module pair with golden files, the real urf schemas, the
+  CHANGES sections and the configuration; the integration test regenerates the four editions into the forks.
 - `iur-ade regen <version>` replaces `scripts/regen_edition.sh`, `iur-ade verify <version> [--db] <paths...>` replaces
   `scripts/roundtrip_batch.sh` and `scripts/db_roundtrip_batch.sh`, `iur-ade recreate-db <version>` replaces
   `scripts/recreate_db.sh`. The tool folders, the database connection and the forks are configured in `iur-ade.toml`

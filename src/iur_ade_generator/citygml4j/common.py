@@ -102,8 +102,6 @@ class GeneratorBase:
     special: list[Hook]
     """The simple hooks of SPECIAL_HOOKS."""
     features: list[Type]
-    feature_hooks: list[Hook]
-    """Feature-typed hooks (uro 3.2 pointCloud), not supported yet."""
     types: list[Type]
     """The data types reachable from the hooks and features."""
     items: list[Type]

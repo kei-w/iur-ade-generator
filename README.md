@@ -82,13 +82,13 @@ distributions.
 
 | Folder | Content |
 |---|---|
-| `src/iur_ade_generator/` | `config.py` (editions, tools, database, workspace), `cli.py`, `regen.py`, `verify.py`, `database.py`, `tools.py` (subprocess wrappers) and the generators: `urospec.py` (specification model of the modules from the XSD, the JAXB classes and the schema mapping), `patch_binding.py`, `patch_mapping.py`, `gen_mapping.py`, `gen_citygml4j.py`, `gen_citydb.py`, `gen_fixture.py`, `compare.py`, `update_changes_*.py` |
+| `src/iur_ade_generator/` | `config.py` (editions, tools, database, workspace), `cli.py`, `regen.py`, `verify.py`, `database.py`, `tools.py` (subprocess wrappers), `naming.py` (Java and SQL identifiers) and the generators: `spec/` (the specification model: `xsd.py`, `jaxb.py` and `mapping.py` read the three sources, `model.py` holds the typed objects, `spec.py` links them), `mapping/` (`patch.py`: the fixes of the ADE Manager output, `generate.py`: the generated urf mapping, `ddl.py`: editing the DDL resources), `citygml4j/` (`model.py`, `bind.py`, `walker.py`, `module.py`, `generator.py`), `citydb/` (`tables.py`: the table model and dependencies, `fields.py`: the field code, `importer.py`, `exporter.py`, `join_tables.py`, `hooks.py`, `registry.py`: the registrations in the hand-written classes, `balloon.py`, `generator.py`), `binding.py`, `fixture.py`, `compare.py`, `changes.py` |
 | `schemas/iur/urf/<version>/urbanFunction.xsd` | the urf schema of each edition as shipped in the PLATEAU datasets (Hachioji 2020 = 2.0, Kyoto 2024 = 3.0, Maebashi 2023 = 3.1, Osaka 2025 = 3.2); `regen` copies it into the citygml4j fork |
 | `schemas/iur/urg/<version>/`, `schemas/iur/urt/<version>/` | the statistical grid and public transit schemas 2.0-3.2 from `https://www.geospatial.jp/iur/schemas/` (not supported yet; the forks keep urg/urt 1.4) |
 | `java/roundtrip/` | Gradle project (composite build of `../../../iur-ade-citygml4j`): `gradlew run --args="<in.gml> <out.gml>"` reads a CityGML file with the ADE module and writes it back; `gradlew validate --args="<file.gml> <xsd>..."` validates against local XSDs |
 | `java/ade-transform/` | Gradle project on the Importer/Exporter 5.5.0 + ADE Manager 2.3.0 class path (`-PimpexpHome=<folder>` or `IMPEXP_HOME`): `gradlew run` (headless ADE Manager transformation), `gradlew register` (register an extension in a 3DCityDB, `-DdeleteScript=` dumps the delete functions), `gradlew commitOrder` / `gradlew tableWeights` (the batch commit order and the table weights the Importer/Exporter derives from a mapping) |
 | `fixtures/` | `uro<ver>_building_all.gml`: one building using every building attribute field of the edition (hand-written); the generated `iur<ver>_all.gml` are written here by `regen` and not versioned |
-| `tests/` | unit tests (`uv run pytest`); tests marked `integration` need the forks and the tools |
+| `tests/` | unit tests (`uv run pytest`): the naming helpers, the configuration, the CLI, the comparison, the CHANGES sections, and the specification model and the generators on a small uro/urf module pair (`tests/data/mini`: XSDs, JAXB stubs, an ADE Manager style mapping) compared with golden files (`tests/golden/mini`, rewritten by `uv run pytest --update-golden`); tests marked `integration` regenerate the four editions and need the forks (`uv run pytest -m integration`) |
 | `out/` | outputs of the verification runs (not versioned) |
 
 ## Design
@@ -124,9 +124,9 @@ uv run pre-commit install
 uv run ruff check && uv run ruff format --check && uv run mypy && uv run pytest
 ```
 
-The generator modules were copied from the PoC workspace as they ran there; `pyproject.toml` lists the lint and type
-rules they are exempted from until they are split into typed modules (the plan is task 13 of the investigation
-documents).
+The generator modules are type-checked by mypy in strict mode and linted by ruff; `pyproject.toml` only exempts the
+template-heavy generator modules from the line length. Every change to a generator is checked twice: the golden
+tests on the mini modules and the integration test that regenerates the four editions into the forks.
 
 ## License
 

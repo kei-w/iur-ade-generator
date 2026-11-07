@@ -57,7 +57,6 @@ class Generator(ModelWriter, BindWriter, WalkerWriter, ModuleWriter):
         self.hooks = [h for h in hooks if h.prop_type is not None]
         self.special = [h for h in hooks if h.prop_type is None and h.element in SPECIAL_HOOKS]
         self.features = spec.feature_types() if features else []
-        self.feature_hooks = []
         self.types = spec.closure(self.hooks, self.features)
         self.items = self._order()
         self.enums: OrderedDict[str, Enum] = OrderedDict()

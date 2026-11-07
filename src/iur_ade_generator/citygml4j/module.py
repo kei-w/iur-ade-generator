@@ -17,7 +17,6 @@ class ModuleWriter(GeneratorBase):
         puts = "".join(f'        features.put("{t.element}", {t.model}.class);\n' for t in concrete)
         props = sorted(
             {f.name for t in features for f in t.fields if f.is_feature_property or f.kind == "cityObjectRef"}
-            | {h.element for h in self.feature_hooks if h.module is module}
         )
         top = sorted(t.element_name for t in concrete if t.top_level)
         prop_test = " || ".join(f'"{n}".equals(name)' for n in props) or "false"
