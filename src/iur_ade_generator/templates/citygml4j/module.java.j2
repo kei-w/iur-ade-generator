@@ -1,0 +1,65 @@
+{{ header }}
+
+package org.citygml4j.ade.iur.model.module;
+
+{{ imports }}
+
+public class {{ name }} extends ADEModule {
+    public static final {{ name }} {{ version }} = new {{ name }}();
+
+    private final Map<String, Class<? extends AbstractFeature>> features;
+
+    private {{ name }}() {
+{{ super_call }}
+        features = new HashMap<>();
+{{ puts }}    }
+
+    @Override
+    public URL getSchemaResource() {
+        return {{ name }}.class.getResource("/org/citygml4j/ade/iur/schema/{{ xsd }}");
+    }
+
+    @Override
+    public List<String> getJAXBPackageNames() {
+        return Collections.singletonList("{{ jaxb }}");
+    }
+
+    public String getModelPackageName() {
+        return "{{ model_pkg }}";
+    }
+
+    @Override
+    public boolean hasFeatureProperty(String name) {
+        return {{ prop_test }};
+    }
+
+    @Override
+    public boolean hasFeature(String name) {
+        return features.containsKey(name);
+    }
+
+    @Override
+    public Class<? extends AbstractFeature> getFeatureClass(String name) {
+        return features.get(name);
+    }
+
+    @Override
+    public QName getFeatureName(Class<? extends AbstractFeature> featureClass) {
+        for (Map.Entry<String, Class<? extends AbstractFeature>> entry : features.entrySet()) {
+            if (entry.getValue() == featureClass)
+                return new QName(getNamespaceURI(), entry.getKey());
+        }
+
+        return null;
+    }
+
+    @Override
+    public Map<String, Class<? extends AbstractFeature>> getFeatures() {
+        return new HashMap<>(features);
+    }
+
+    @Override
+    public boolean isTopLevelFeature(String name) {
+        return {{ top_test }};
+    }
+}

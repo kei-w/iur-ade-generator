@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 
 from ..spec import XSD_FILES, Module
+from ..templates import render
 from .common import GeneratorBase, render_imports, write
 
 
@@ -38,70 +39,18 @@ class ModuleWriter(GeneratorBase):
             "java.util.List",
             "java.util.Map",
         }
-        text = f"""{self.header}
-
-package org.citygml4j.ade.iur.model.module;
-
-{render_imports(imports)}
-
-public class {module.module_class} extends ADEModule {{
-    public static final {module.module_class} {version} = new {module.module_class}();
-
-    private final Map<String, Class<? extends AbstractFeature>> features;
-
-    private {module.module_class}() {{
-{super_call}
-        features = new HashMap<>();
-{puts}    }}
-
-    @Override
-    public URL getSchemaResource() {{
-        return {module.module_class}.class.getResource("/org/citygml4j/ade/iur/schema/{XSD_FILES[module.prefix]}");
-    }}
-
-    @Override
-    public List<String> getJAXBPackageNames() {{
-        return Collections.singletonList("{jaxb}");
-    }}
-
-    public String getModelPackageName() {{
-        return "{module.model_pkg}";
-    }}
-
-    @Override
-    public boolean hasFeatureProperty(String name) {{
-        return {prop_test};
-    }}
-
-    @Override
-    public boolean hasFeature(String name) {{
-        return features.containsKey(name);
-    }}
-
-    @Override
-    public Class<? extends AbstractFeature> getFeatureClass(String name) {{
-        return features.get(name);
-    }}
-
-    @Override
-    public QName getFeatureName(Class<? extends AbstractFeature> featureClass) {{
-        for (Map.Entry<String, Class<? extends AbstractFeature>> entry : features.entrySet()) {{
-            if (entry.getValue() == featureClass)
-                return new QName(getNamespaceURI(), entry.getKey());
-        }}
-
-        return null;
-    }}
-
-    @Override
-    public Map<String, Class<? extends AbstractFeature>> getFeatures() {{
-        return new HashMap<>(features);
-    }}
-
-    @Override
-    public boolean isTopLevelFeature(String name) {{
-        return {top_test};
-    }}
-}}
-"""
+        text = render(
+            "citygml4j/module.java.j2",
+            header=self.header,
+            imports=render_imports(imports),
+            name=module.module_class,
+            version=version,
+            super_call=super_call,
+            puts=puts,
+            xsd=XSD_FILES[module.prefix],
+            jaxb=jaxb,
+            model_pkg=module.model_pkg,
+            prop_test=prop_test,
+            top_test=top_test,
+        )
         write(p, text)

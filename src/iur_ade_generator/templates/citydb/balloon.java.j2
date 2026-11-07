@@ -1,0 +1,27 @@
+{{ header }}
+
+package org.citydb.ade.iur.balloon;
+
+import org.citydb.ade.iur.schema.ADETable;
+import org.citydb.ade.iur.schema.SchemaMapper;
+import org.citydb.core.ade.visExporter.ADEBalloonHandler;
+
+public class {{ name }} implements ADEBalloonHandler {
+    private final SchemaMapper schemaMapper;
+
+    public {{ name }}(BalloonManager manager) {
+        this.schemaMapper = manager.getSchemaMapper();
+    }
+
+    @Override
+    public String getSqlStatement(String table,
+                                  String tableShortId,
+                                  String aggregateColumnsClause,
+                                  int lod,
+                                  String schemaName) {
+        String sqlStatement = null;
+
+{{ branches }}
+        return sqlStatement;
+    }
+}

@@ -9,6 +9,7 @@ from collections.abc import Iterable
 from ..errors import GeneratorError
 from ..naming import cap, norm
 from ..spec import Field, Module, Type, split_ref
+from ..templates import render
 from .common import IMPORTS, SPECIAL_HOOKS, GeneratorBase, read, render_imports, write
 
 CODE_MARSHALLERS = {"code": "marshalCode", "measure": "marshalMeasure", "length": "marshalLength"}
@@ -468,61 +469,16 @@ class BindWriter(GeneratorBase):
         if "AbstractCityObjectType" in body:
             imports.add("net.opengis.citygml._2.AbstractCityObjectType")
         imports |= {module.model_pkg + "." + m for m in self.clashing_models(module)}
-        nl = "\n"
-        text = f"""{self.header}
-
-package org.citygml4j.ade.iur.bind.{module.prefix};
-
-{render_imports(imports)}
-
-public class {module.marshaller} implements ADEMarshaller {{
-    private final Marshaller marshaller;
-    private final ObjectFactory factory = new ObjectFactory();
-    private ADEMarshallerHelper helper;
-    private TypeMapper<JAXBElement<?>> elementMapper;
-    private TypeMapper<Object> typeMapper;
-
-    public {module.marshaller}(Marshaller marshaller) {{
-        this.marshaller = marshaller;
-    }}
-
-    private synchronized TypeMapper<JAXBElement<?>> getElementMapper() {{
-        if (elementMapper == null) {{
-            elementMapper = TypeMapper.<JAXBElement<?>>create()
-{nl.join(element_entries)};
-        }}
-
-        return elementMapper;
-    }}
-
-    private synchronized TypeMapper<Object> getTypeMapper() {{
-        if (typeMapper == null) {{
-            typeMapper = TypeMapper.create()
-{nl.join(type_entries)};
-        }}
-
-        return typeMapper;
-    }}
-
-    @Override
-    public void setADEMarshallerHelper(ADEMarshallerHelper helper) {{
-        this.helper = helper;
-    }}
-
-    @Override
-    public JAXBElement<?> marshalJAXBElement(ADEModelObject src) {{
-        TypeMapper<JAXBElement<?>> elementMapper = getElementMapper();
-        return elementMapper != null ? elementMapper.apply(src) : null;
-    }}
-
-    @Override
-    public Object marshal(ADEModelObject src) {{
-        TypeMapper<Object> typeMapper = getTypeMapper();
-        return typeMapper != null ? typeMapper.apply(src) : null;
-    }}
-
-{body}}}
-"""
+        text = render(
+            "citygml4j/marshaller.java.j2",
+            header=self.header,
+            prefix=module.prefix,
+            imports=render_imports(imports),
+            name=module.marshaller,
+            element_entries="\n".join(element_entries),
+            type_entries="\n".join(type_entries),
+            body=body,
+        )
         self.out(os.path.join(self.bind_dir(module), module.marshaller + ".java"), text)
 
     def gen_unmarshaller(self, module: Module) -> None:
@@ -593,52 +549,16 @@ public class {module.marshaller} implements ADEMarshaller {{
         if "AbstractCityObject)" in body or "instanceof AbstractCityObject" in body:
             imports.add("org.citygml4j.model.citygml.core.AbstractCityObject")
         imports |= {module.model_pkg + "." + m for m in self.clashing_models(module)}
-        nl = "\n"
-        text = f"""{self.header}
-
-package org.citygml4j.ade.iur.bind.{module.prefix};
-
-{render_imports(imports)}
-
-public class {module.unmarshaller} implements ADEUnmarshaller {{
-    private ADEUnmarshallerHelper helper;
-    private CheckedTypeMapper<ADEModelObject> typeMapper;
-
-    private synchronized CheckedTypeMapper<ADEModelObject> getTypeMapper() {{
-        if (typeMapper == null) {{
-            typeMapper = CheckedTypeMapper.<ADEModelObject>create()
-{nl.join(type_entries)};
-        }}
-
-        return typeMapper;
-    }}
-
-    @Override
-    public void setADEUnmarshallerHelper(ADEUnmarshallerHelper helper) {{
-        this.helper = helper;
-    }}
-
-    @Override
-    public ADEModelObject unmarshal(JAXBElement<?> src) throws MissingADESchemaException {{
-        final Object value = src.getValue();
-
-        // generic application properties
-        switch (src.getName().getLocalPart()) {{
-{nl.join(cases)}
-        }}
-
-        // all other types
-        return unmarshal(value);
-    }}
-
-    @Override
-    public ADEModelObject unmarshal(Object src) throws MissingADESchemaException {{
-        CheckedTypeMapper<ADEModelObject> typeMapper = getTypeMapper();
-        return typeMapper != null ? typeMapper.apply(src) : null;
-    }}
-
-{body}}}
-"""
+        text = render(
+            "citygml4j/unmarshaller.java.j2",
+            header=self.header,
+            prefix=module.prefix,
+            imports=render_imports(imports),
+            name=module.unmarshaller,
+            type_entries="\n".join(type_entries),
+            cases="\n".join(cases),
+            body=body,
+        )
         self.out(os.path.join(self.bind_dir(module), module.unmarshaller + ".java"), text)
 
     # ---------------------------------------------------- hand-written classes

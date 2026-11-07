@@ -7,6 +7,7 @@ from collections import OrderedDict
 
 from ..errors import GeneratorError
 from ..naming import uncap
+from ..templates import render
 from .common import GEOM_IMPORTS, PKG, indent, render_imports, wrap
 from .fields import FieldWriter
 from .tables import Table
@@ -96,51 +97,27 @@ class ImporterWriter(FieldWriter):
         imports |= self.extra_imports
         if "LocalDate" in body:
             imports.add("java.time.LocalDate")
-        text = f"""{self.header}
-
-package {PKG}.importer.{tbl.module.prefix};
-
-{render_imports(imports)}
-
-public class {tbl.importer} implements {tbl.module.importer_interface} {{
-{conn_field}    private final CityGMLImportHelper helper;
-    private final SchemaMapper schemaMapper;
-    private final PreparedStatement ps;
-{"".join(fields)}
-    private int batchCounter;
-
-    public {tbl.importer}(Connection connection, CityGMLImportHelper helper, ImportManager manager) throws CityGMLImportException, SQLException {{
-{conn_init}        this.helper = helper;
-        this.schemaMapper = manager.getSchemaMapper();
-
-        ps = connection.prepareStatement("insert into " +
-                helper.getTableNameWithSchema(schemaMapper.getTableName(ADETable.{tbl.enum})) + " " +
-                "({sql_cols}) " +
-                "values ({", ".join("?" * len(columns))})");
-{inits_block}    }}
-
-    public void doImport({concrete.model} {var}, long objectId, AbstractObjectType<?> objectType, ForeignKeys foreignKeys) throws CityGMLImportException, SQLException {{
-{base_call}{body}
-        ps.addBatch();
-        if (++batchCounter == helper.getDatabaseAdapter().getMaxBatchSize())
-            helper.executeBatch(objectType);
-
-{post}    }}
-
-    @Override
-    public void executeBatch() throws CityGMLImportException, SQLException {{
-        if (batchCounter > 0) {{
-            ps.executeBatch();
-            batchCounter = 0;
-        }}
-    }}
-
-    @Override
-    public void close() throws CityGMLImportException, SQLException {{
-        ps.close();
-    }}
-}}
-"""
+        text = render(
+            "citydb/feature_importer.java.j2",
+            header=self.header,
+            pkg=PKG,
+            prefix=tbl.module.prefix,
+            imports=render_imports(imports),
+            name=tbl.importer,
+            interface=tbl.module.importer_interface,
+            conn_field=conn_field,
+            fields="".join(fields),
+            conn_init=conn_init,
+            enum=tbl.enum,
+            sql_cols=sql_cols,
+            placeholders=", ".join("?" * len(columns)),
+            inits_block=inits_block,
+            model=concrete.model,
+            var=var,
+            base_call=base_call,
+            body=body,
+            post=post,
+        )
         text = text.replace("\n\n    }\n\n    @Override", "\n    }\n\n    @Override")
         self.out(os.path.join(self.src, "importer", tbl.module.prefix, tbl.importer + ".java"), text)
         return columns
@@ -285,50 +262,30 @@ public class {tbl.importer} implements {tbl.module.importer_interface} {{
         imports |= self.extra_imports
         if "LocalDate" in body:
             imports.add("java.time.LocalDate")
-        text = f"""{self.header}
-
-package {PKG}.importer.{tbl.module.prefix};
-
-{render_imports(imports)}
-
-public class {tbl.importer} implements {tbl.module.importer_interface} {{
-{conn_field}    private final CityGMLImportHelper helper;
-{om_field}    private final SchemaMapper schemaMapper;
-    private final PreparedStatement ps;
-{"".join(fields)}
-    private int batchCounter;
-
-    public {tbl.importer}(Connection connection, CityGMLImportHelper helper, ImportManager manager) throws CityGMLImportException, SQLException {{
-{conn_init}        this.helper = helper;
-        this.schemaMapper = manager.getSchemaMapper();
-{om_init}
-        ps = connection.prepareStatement("insert into " +
-                helper.getTableNameWithSchema(schemaMapper.getTableName(ADETable.{tbl.enum})) + " " +
-                "({sql_cols}) " +
-                "values ({", ".join("?" * len(columns))})");
-{inits_block}    }}
-
-{overload}{head}{body}
-        ps.addBatch();
-        if (++batchCounter == helper.getDatabaseAdapter().getMaxBatchSize())
-            helper.executeBatch(schemaMapper.getTableName(ADETable.{tbl.enum}));
-
-{post}{ret}    }}
-
-{lazy_methods}    @Override
-    public void executeBatch() throws CityGMLImportException, SQLException {{
-        if (batchCounter > 0) {{
-            ps.executeBatch();
-            batchCounter = 0;
-        }}
-    }}
-
-    @Override
-    public void close() throws CityGMLImportException, SQLException {{
-        ps.close();
-    }}
-}}
-"""
+        text = render(
+            "citydb/importer.java.j2",
+            header=self.header,
+            pkg=PKG,
+            prefix=tbl.module.prefix,
+            imports=render_imports(imports),
+            name=tbl.importer,
+            interface=tbl.module.importer_interface,
+            conn_field=conn_field,
+            om_field=om_field,
+            fields="".join(fields),
+            conn_init=conn_init,
+            om_init=om_init,
+            enum=tbl.enum,
+            sql_cols=sql_cols,
+            placeholders=", ".join("?" * len(columns)),
+            inits_block=inits_block,
+            overload=overload,
+            head=head,
+            body=body,
+            post=post,
+            ret=ret,
+            lazy_methods=lazy_methods,
+        )
         text = text.replace("\n\n    }\n\n    @Override", "\n    }\n\n    @Override").replace(
             "\n\n    }\n\n    private", "\n    }\n\n    private"
         )

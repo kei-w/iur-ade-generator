@@ -7,6 +7,7 @@ import re
 
 from ..naming import cap
 from ..spec import ABSTRACT_FEATURE_BASES, Enum, Hook, Type
+from ..templates import render
 from .common import IMPORTS, VISITORS, GeneratorBase, infer_imports, render_imports
 
 
@@ -184,15 +185,17 @@ class ModelWriter(GeneratorBase):
         imports |= infer_imports("".join(fields))
         self.out(
             os.path.join(self.model_dir(t.module), name + ".java"),
-            f"""{self.header}
-
-package {t.module.model_pkg};
-
-{render_imports(imports)}
-
-public {"abstract " if t.abstract else ""}class {name} extends {base}{" implements ADEModelObject" if root else ""} {{
-{body}}}
-""",
+            render(
+                "citygml4j/model_class.java.j2",
+                header=self.header,
+                pkg=t.module.model_pkg,
+                imports=render_imports(imports),
+                abstract="abstract " if t.abstract else "",
+                name=name,
+                base=base,
+                implements=" implements ADEModelObject" if root else "",
+                body=body,
+            ),
         )
 
     def gen_feature_property_type(self, p: Type, target: str, target_import: str | None = None) -> None:
@@ -204,43 +207,14 @@ public {"abstract " if t.abstract else ""}class {name} extends {base}{" implemen
         ] + ([target_import] if target_import else [])
         self.out(
             os.path.join(self.model_dir(p.module), name + ".java"),
-            f"""{self.header}
-
-package {p.module.model_pkg};
-
-{render_imports(imports)}
-
-public class {name} extends FeatureProperty<{target}> implements ADEModelObject {{
-
-    public {name}() {{
-        super();
-    }}
-
-    public {name}({target} object) {{
-        super(object);
-    }}
-
-    public {name}(String href) {{
-        super(href);
-    }}
-
-    @Override
-    public Class<{target}> getAssociableClass() {{
-        return {target}.class;
-    }}
-
-    @Override
-    public Object copy(CopyBuilder copyBuilder) {{
-        return copyTo(new {name}(), copyBuilder);
-    }}
-
-    @Override
-    public Object copyTo(Object target, CopyBuilder copyBuilder) {{
-        {name} copy = (target == null) ? new {name}() : ({name}) target;
-        return super.copyTo(copy, copyBuilder);
-    }}
-}}
-""",
+            render(
+                "citygml4j/feature_property_type.java.j2",
+                header=self.header,
+                pkg=p.module.model_pkg,
+                imports=render_imports(imports),
+                name=name,
+                target=target,
+            ),
         )
 
     def gen_data_type(self, t: Type) -> None:
@@ -261,85 +235,35 @@ public class {name} extends FeatureProperty<{target}> implements ADEModelObject 
             imports.add(f"{t.base.module.model_pkg}.{t.base.model}")
         self.out(
             os.path.join(self.model_dir(t.module), name + ".java"),
-            f"""{self.header}
-
-package {t.module.model_pkg};
-
-{render_imports(imports)}
-
-public {"abstract " if t.abstract else ""}class {name} extends {base} {{
-{body}}}
-""",
+            render(
+                "citygml4j/model_class.java.j2",
+                header=self.header,
+                pkg=t.module.model_pkg,
+                imports=render_imports(imports),
+                abstract="abstract " if t.abstract else "",
+                name=name,
+                base=base,
+                implements="",
+                body=body,
+            ),
         )
 
     def gen_property_type(self, p: Type) -> None:
         name, target = p.model, p.target.model
         self.out(
             os.path.join(self.model_dir(p.module), name + ".java"),
-            f"""{self.header}
-
-package {p.module.model_pkg};
-
-import org.citygml4j.builder.copy.CopyBuilder;
-import org.citygml4j.model.citygml.ade.binding.ADEModelObject;
-import org.citygml4j.model.gml.base.AssociationByRep;
-
-public class {name} extends AssociationByRep<{target}> implements ADEModelObject {{
-
-    public {name}() {{
-        super();
-    }}
-
-    public {name}({target} object) {{
-        super(object);
-    }}
-
-    @Override
-    public Class<{target}> getAssociableClass() {{
-        return {target}.class;
-    }}
-
-    @Override
-    public Object copy(CopyBuilder copyBuilder) {{
-        return copyTo(new {name}(), copyBuilder);
-    }}
-
-    @Override
-    public Object copyTo(Object target, CopyBuilder copyBuilder) {{
-        {name} copy = (target == null) ? new {name}() : ({name}) target;
-        return super.copyTo(copy, copyBuilder);
-    }}
-}}
-""",
+            render(
+                "citygml4j/property_type.java.j2", header=self.header, pkg=p.module.model_pkg, name=name, target=target
+            ),
         )
 
     def gen_property_element(self, h: Hook) -> None:
         name, value = h.model_element, h.property_type.model
         self.out(
             os.path.join(self.model_dir(h.module), name + ".java"),
-            f"""{self.header}
-
-package {h.module.model_pkg};
-
-import org.citygml4j.builder.copy.CopyBuilder;
-import org.citygml4j.model.citygml.ade.binding.ADEGenericApplicationProperty;
-
-public class {name} extends ADEGenericApplicationProperty<{value}> {{
-
-    public {name}() {{
-        super();
-    }}
-
-    public {name}({value} value) {{
-        super(value);
-    }}
-
-    @Override
-    public Object copy(CopyBuilder copyBuilder) {{
-        return copyTo(new {name}(), copyBuilder);
-    }}
-}}
-""",
+            render(
+                "citygml4j/property_element.java.j2", header=self.header, pkg=h.module.model_pkg, name=name, value=value
+            ),
         )
 
     def gen_enum(self, e: Enum) -> None:
@@ -348,36 +272,7 @@ public class {name} extends ADEGenericApplicationProperty<{value}> {{
         )
         self.out(
             os.path.join(self.model_dir(e.module), e.model + ".java"),
-            f"""{self.header}
-
-package {e.module.model_pkg};
-
-public enum {e.model} {{
-{consts};
-
-    private final String value;
-
-    {e.model}(String value) {{
-        this.value = value;
-    }}
-
-    public String value() {{
-        return value;
-    }}
-
-    public static {e.model} fromValue(String value) {{
-        for ({e.model} v : {e.model}.values()) {{
-            if (v.value.equals(value))
-                return v;
-        }}
-
-        return null;
-    }}
-
-    @Override
-    public String toString() {{
-        return value;
-    }}
-}}
-""",
+            render(
+                "citygml4j/enum.java.j2", header=self.header, pkg=e.module.model_pkg, name=e.model, constants=consts
+            ),
         )

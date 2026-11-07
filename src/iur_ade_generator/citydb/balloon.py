@@ -5,37 +5,9 @@ from __future__ import annotations
 import os
 
 from ..spec import Module
+from ..templates import render
 from .common import write
 from .registry import RegistryWriter
-
-BALLOON_TEMPLATE = """{header}
-
-package org.citydb.ade.iur.balloon;
-
-import org.citydb.ade.iur.schema.ADETable;
-import org.citydb.ade.iur.schema.SchemaMapper;
-import org.citydb.core.ade.visExporter.ADEBalloonHandler;
-
-public class {name} implements ADEBalloonHandler {{
-    private final SchemaMapper schemaMapper;
-
-    public {name}(BalloonManager manager) {{
-        this.schemaMapper = manager.getSchemaMapper();
-    }}
-
-    @Override
-    public String getSqlStatement(String table,
-                                  String tableShortId,
-                                  String aggregateColumnsClause,
-                                  int lod,
-                                  String schemaName) {{
-        String sqlStatement = null;
-
-{branches}
-        return sqlStatement;
-    }}
-}}
-"""
 
 
 class BalloonWriter(RegistryWriter):
@@ -80,5 +52,5 @@ class BalloonWriter(RegistryWriter):
         name = module.java_name + "BalloonHandler"
         write(
             os.path.join(self.src, "balloon", name + ".java"),
-            BALLOON_TEMPLATE.format(header=self.header, name=name, branches=branches + "\n"),
+            render("citydb/balloon.java.j2", header=self.header, name=name, branches=branches + "\n"),
         )

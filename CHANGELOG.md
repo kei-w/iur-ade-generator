@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The class skeletons of the generated Java (importers, exporters, hook and join table classes, balloon handler,
+  model classes, marshaller, unmarshaller, module class) are Jinja2 templates under `templates/`; the field and method
+  code stays in Python.
 - The generators are typed packages checked by mypy in strict mode: `spec` (the specification model as dataclasses
   read from the XSDs, the JAXB classes and the schema mapping), `mapping` (the ADE Manager patches, the generated urf
   mapping and the DDL editing), `citygml4j` (model classes, bind code, walkers, module class), `citydb` (table model,

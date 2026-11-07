@@ -1,0 +1,23 @@
+{{ header }}
+
+package {{ pkg }}.exporter.{{ prefix }};
+
+{{ imports }}
+
+import java.sql.*;
+
+public class {{ name }} implements {{ interface }} {
+{{ helper_field }}{{ om_field }}{{ fields }}
+    public {{ name }}(Connection connection, CityGMLExportHelper helper, ExportManager manager) throws CityGMLExportException, SQLException {
+{{ helper_init }}{{ om_init }}        String tableName = manager.getSchemaMapper().getTableName(ADETable.{{ enum }});
+
+{{ table_decls }}{{ stmts }}
+{{ inits }}    }
+
+{{ methods }}
+{{ lazy_methods }}    @Override
+    public void close() throws CityGMLExportException, SQLException {
+{{ close_ps }}
+{{ close_parent }}{{ jt_closes }}
+    }
+}

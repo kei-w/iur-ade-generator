@@ -1,0 +1,31 @@
+{{ header }}
+
+package {{ pkg }};
+
+public enum {{ name }} {
+{{ constants }};
+
+    private final String value;
+
+    {{ name }}(String value) {
+        this.value = value;
+    }
+
+    public String value() {
+        return value;
+    }
+
+    public static {{ name }} fromValue(String value) {
+        for ({{ name }} v : {{ name }}.values()) {
+            if (v.value.equals(value))
+                return v;
+        }
+
+        return null;
+    }
+
+    @Override
+    public String toString() {
+        return value;
+    }
+}

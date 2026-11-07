@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 from ..naming import cap, uncap
 from ..spec import Hook, MappingInjection
+from ..templates import render
 from .common import BASE_TARGETS, HOOK_TARGETS, PKG, SUBCLASS_OF, hook_class, ref, render_imports, wrap
 from .exporter import ExporterWriter
 from .tables import HookField
@@ -124,54 +125,23 @@ class HookWriter(ExporterWriter):
         fields = "".join(f"    private final {imp} {uncap(imp)};\n" for imp in importers)
         inits = "".join(f"        {uncap(imp)} = manager.getImporter({imp}.class);\n" for imp in importers)
         sql_cols = '" +\n                "'.join(wrap(columns))
-        text = f"""{self.header}
-
-package {PKG}.importer.{mod.prefix};
-
-{render_imports(imports)}
-
-import java.sql.*;
-
-public class {name} implements {mod.importer_interface} {{
-    private final CityGMLImportHelper helper;
-    private final SchemaMapper schemaMapper;
-    private final PreparedStatement ps;
-
-{fields}
-    private int batchCounter;
-
-    public {name}(Connection connection, CityGMLImportHelper helper, ImportManager manager) throws CityGMLImportException, SQLException {{
-        this.helper = helper;
-        this.schemaMapper = manager.getSchemaMapper();
-
-        ps = connection.prepareStatement("insert into " +
-                helper.getTableNameWithSchema(schemaMapper.getTableName(ADETable.{inj.table[3:].upper()})) + " " +
-                "({sql_cols}) " +
-                "values ({", ".join("?" * len(columns))})");
-
-{inits}    }}
-
-    public void doImport(ADEPropertyCollection properties, {ref(parent_cls)} parent, long parentId, FeatureType parentType) throws CityGMLImportException, SQLException {{
-{body}        ps.addBatch();
-        if (++batchCounter == helper.getDatabaseAdapter().getMaxBatchSize())
-            helper.executeBatch(schemaMapper.getTableName(ADETable.{inj.table[3:].upper()}));
-
-{post}    }}
-
-    @Override
-    public void executeBatch() throws CityGMLImportException, SQLException {{
-        if (batchCounter > 0) {{
-            ps.executeBatch();
-            batchCounter = 0;
-        }}
-    }}
-
-    @Override
-    public void close() throws CityGMLImportException, SQLException {{
-        ps.close();
-    }}
-}}
-"""
+        text = render(
+            "citydb/hook_importer.java.j2",
+            header=self.header,
+            pkg=PKG,
+            prefix=mod.prefix,
+            imports=render_imports(imports),
+            name=name,
+            interface=mod.importer_interface,
+            fields=fields,
+            enum=inj.table[3:].upper(),
+            sql_cols=sql_cols,
+            placeholders=", ".join("?" * len(columns)),
+            inits=inits,
+            parent=ref(parent_cls),
+            body=body,
+            post=post,
+        )
         text = text.replace("\n\n    }\n\n    @Override", "\n    }\n\n    @Override")
         text = text.replace('                "values (?)");\n\n    }', '                "values (?)");\n    }')
         self.out(os.path.join(self.src, "importer", mod.prefix, name + ".java"), text)
@@ -358,35 +328,26 @@ public class {name} implements {mod.importer_interface} {{
             else ""
         )
         manager_inits = "        this.helper = helper;\n        this.manager = manager;\n" if feature_hooks else ""
-        text = f"""{self.header}
-
-package {PKG}.exporter.{mod.prefix};
-
-{render_imports(imports)}
-
-import java.sql.*;
-
-public class {name} implements {mod.exporter_interface} {{
-{manager_fields}    private final PreparedStatement ps;
-    private final String module;
-
-{fields}
-    public {name}(Connection connection, CityGMLExportHelper helper, ExportManager manager) throws CityGMLExportException, SQLException {{
-{manager_inits}        String tableName = manager.getSchemaMapper().getTableName(ADETable.{inj.table[3:].upper()});
-        module = {mod.module_class}.{mod.version_const}.getNamespaceURI();
-
-{select}
-{inits}    }}
-
-    public void doExport({ref(parent_cls)} parent, long parentId, FeatureType parentType, ProjectionFilter projectionFilter) throws CityGMLExportException, SQLException {{
-{query}    }}
-
-    @Override
-    public void close() throws CityGMLExportException, SQLException {{
-        ps.close();
-{jt_closes}    }}
-}}
-"""
+        text = render(
+            "citydb/hook_exporter.java.j2",
+            header=self.header,
+            pkg=PKG,
+            prefix=mod.prefix,
+            imports=render_imports(imports),
+            name=name,
+            interface=mod.exporter_interface,
+            manager_fields=manager_fields,
+            fields=fields,
+            manager_inits=manager_inits,
+            enum=inj.table[3:].upper(),
+            module_class=mod.module_class,
+            version_const=mod.version_const,
+            select=select,
+            inits=inits,
+            parent=ref(parent_cls),
+            query=query,
+            jt_closes=jt_closes,
+        )
         text = re.sub(r"\n{3,}", "\n\n", text)
         text = text.replace(
             "        ps = connection.prepareStatement(select.toString());\n\n    }",

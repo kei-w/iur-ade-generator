@@ -1,0 +1,44 @@
+{{ header }}
+
+package org.citygml4j.ade.iur.bind.{{ prefix }};
+
+{{ imports }}
+
+public class {{ name }} implements ADEUnmarshaller {
+    private ADEUnmarshallerHelper helper;
+    private CheckedTypeMapper<ADEModelObject> typeMapper;
+
+    private synchronized CheckedTypeMapper<ADEModelObject> getTypeMapper() {
+        if (typeMapper == null) {
+            typeMapper = CheckedTypeMapper.<ADEModelObject>create()
+{{ type_entries }};
+        }
+
+        return typeMapper;
+    }
+
+    @Override
+    public void setADEUnmarshallerHelper(ADEUnmarshallerHelper helper) {
+        this.helper = helper;
+    }
+
+    @Override
+    public ADEModelObject unmarshal(JAXBElement<?> src) throws MissingADESchemaException {
+        final Object value = src.getValue();
+
+        // generic application properties
+        switch (src.getName().getLocalPart()) {
+{{ cases }}
+        }
+
+        // all other types
+        return unmarshal(value);
+    }
+
+    @Override
+    public ADEModelObject unmarshal(Object src) throws MissingADESchemaException {
+        CheckedTypeMapper<ADEModelObject> typeMapper = getTypeMapper();
+        return typeMapper != null ? typeMapper.apply(src) : null;
+    }
+
+{{ body }}}

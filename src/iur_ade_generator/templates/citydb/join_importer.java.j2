@@ -1,0 +1,53 @@
+{{ header }}
+
+package {{ pkg }}.importer.{{ prefix }};
+
+import {{ pkg }}.importer.ImportManager;
+import {{ pkg }}.schema.ADETable;
+import {{ pkg }}.schema.SchemaMapper;
+import org.citydb.core.ade.importer.CityGMLImportHelper;
+import org.citydb.core.operation.importer.CityGMLImportException;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
+public class {{ name }} implements {{ interface }} {
+    private final CityGMLImportHelper helper;
+    private final SchemaMapper schemaMapper;
+    private final PreparedStatement ps;
+
+    private int batchCounter;
+
+    public {{ name }}(Connection connection, CityGMLImportHelper helper, ImportManager manager) throws CityGMLImportException, SQLException {
+        this.helper = helper;
+        this.schemaMapper = manager.getSchemaMapper();
+
+        ps = connection.prepareStatement("insert into " +
+                helper.getTableNameWithSchema(schemaMapper.getTableName(ADETable.{{ enum }})) + " " +
+                "({{ target_column }}, {{ owner_column }}) " +
+                "values (?, ?)");
+    }
+
+    public void doImport(long {{ target_id }}, long {{ owner_var }}Id) throws CityGMLImportException, SQLException {
+        ps.setLong(1, {{ target_id }});
+        ps.setLong(2, {{ owner_var }}Id);
+
+        ps.addBatch();
+        if (++batchCounter == helper.getDatabaseAdapter().getMaxBatchSize())
+            helper.executeBatch(schemaMapper.getTableName(ADETable.{{ enum }}));
+    }
+
+    @Override
+    public void executeBatch() throws CityGMLImportException, SQLException {
+        if (batchCounter > 0) {
+            ps.executeBatch();
+            batchCounter = 0;
+        }
+    }
+
+    @Override
+    public void close() throws CityGMLImportException, SQLException {
+        ps.close();
+    }
+}

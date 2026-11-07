@@ -1,0 +1,47 @@
+{{ header }}
+
+package {{ pkg }}.importer.{{ prefix }};
+
+{{ imports }}
+
+import java.sql.*;
+
+public class {{ name }} implements {{ interface }} {
+    private final CityGMLImportHelper helper;
+    private final SchemaMapper schemaMapper;
+    private final PreparedStatement ps;
+
+{{ fields }}
+    private int batchCounter;
+
+    public {{ name }}(Connection connection, CityGMLImportHelper helper, ImportManager manager) throws CityGMLImportException, SQLException {
+        this.helper = helper;
+        this.schemaMapper = manager.getSchemaMapper();
+
+        ps = connection.prepareStatement("insert into " +
+                helper.getTableNameWithSchema(schemaMapper.getTableName(ADETable.{{ enum }})) + " " +
+                "({{ sql_cols }}) " +
+                "values ({{ placeholders }})");
+
+{{ inits }}    }
+
+    public void doImport(ADEPropertyCollection properties, {{ parent }} parent, long parentId, FeatureType parentType) throws CityGMLImportException, SQLException {
+{{ body }}        ps.addBatch();
+        if (++batchCounter == helper.getDatabaseAdapter().getMaxBatchSize())
+            helper.executeBatch(schemaMapper.getTableName(ADETable.{{ enum }}));
+
+{{ post }}    }
+
+    @Override
+    public void executeBatch() throws CityGMLImportException, SQLException {
+        if (batchCounter > 0) {
+            ps.executeBatch();
+            batchCounter = 0;
+        }
+    }
+
+    @Override
+    public void close() throws CityGMLImportException, SQLException {
+        ps.close();
+    }
+}

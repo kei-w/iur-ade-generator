@@ -1,0 +1,36 @@
+{{ header }}
+
+package {{ pkg }};
+
+{{ imports }}
+
+public class {{ name }} extends FeatureProperty<{{ target }}> implements ADEModelObject {
+
+    public {{ name }}() {
+        super();
+    }
+
+    public {{ name }}({{ target }} object) {
+        super(object);
+    }
+
+    public {{ name }}(String href) {
+        super(href);
+    }
+
+    @Override
+    public Class<{{ target }}> getAssociableClass() {
+        return {{ target }}.class;
+    }
+
+    @Override
+    public Object copy(CopyBuilder copyBuilder) {
+        return copyTo(new {{ name }}(), copyBuilder);
+    }
+
+    @Override
+    public Object copyTo(Object target, CopyBuilder copyBuilder) {
+        {{ name }} copy = (target == null) ? new {{ name }}() : ({{ name }}) target;
+        return super.copyTo(copy, copyBuilder);
+    }
+}

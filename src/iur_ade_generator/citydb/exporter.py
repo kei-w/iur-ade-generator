@@ -10,6 +10,7 @@ from collections.abc import Callable
 from ..errors import GeneratorError
 from ..naming import cap, uncap, words
 from ..spec import Type
+from ..templates import render
 from .common import GEOM_IMPORTS, PKG, indent, render_imports, required, wrap
 from .join_tables import JoinTableWriter
 from .tables import Table
@@ -226,26 +227,23 @@ class ExporterWriter(JoinTableWriter):
         closes = jt_closes + "".join(f"        ps{cap(f.model_name)}.close();\n" for f in feature_props)
         if tbl.exportable:
             closes = "        ps.close();\n" + closes
-        text = f"""{self.header}
-
-package {PKG}.exporter.{tbl.module.prefix};
-
-{render_imports(imports)}
-
-import java.sql.*;
-
-public class {tbl.exporter} implements {tbl.module.exporter_interface} {{
-{helper_field}{fields}
-    public {tbl.exporter}(Connection connection, CityGMLExportHelper helper, ExportManager manager) throws CityGMLExportException, SQLException {{
-{helper_init}{table_name}{inits}
-{stmts}    }}
-
-{methods}
-    @Override
-    public void close() throws CityGMLExportException, SQLException {{
-{closes}    }}
-}}
-"""
+        text = render(
+            "citydb/feature_exporter.java.j2",
+            header=self.header,
+            pkg=PKG,
+            prefix=tbl.module.prefix,
+            imports=render_imports(imports),
+            name=tbl.exporter,
+            interface=tbl.module.exporter_interface,
+            helper_field=helper_field,
+            fields=fields,
+            helper_init=helper_init,
+            table_name=table_name,
+            inits=inits,
+            stmts=stmts,
+            methods=methods,
+            closes=closes,
+        )
         text = re.sub(r"\n{3,}", "\n\n", text)
         text = text.replace("    }\n\n    @Override", "    }\n\n    @Override").replace("{\n\n    }\n}", "{\n    }\n}")
         self.out(os.path.join(self.src, "exporter", tbl.module.prefix, tbl.exporter + ".java"), text)
@@ -627,30 +625,29 @@ public class {tbl.exporter} implements {tbl.module.exporter_interface} {{
             close_parent = "        psByParent.close();"
         else:
             close_parent = ""
-        text = f"""{self.header}
-
-package {PKG}.exporter.{tbl.module.prefix};
-
-{render_imports(imports)}
-
-import java.sql.*;
-
-public class {tbl.exporter} implements {tbl.module.exporter_interface} {{
-{helper_field}{om_field}{fields}
-    public {tbl.exporter}(Connection connection, CityGMLExportHelper helper, ExportManager manager) throws CityGMLExportException, SQLException {{
-{helper_init}{om_init}        String tableName = manager.getSchemaMapper().getTableName(ADETable.{tbl.enum});
-
-{table_decls}{stmts}
-{inits}    }}
-
-{methods}
-{lazy_methods}    @Override
-    public void close() throws CityGMLExportException, SQLException {{
-{close_ps}
-{close_parent}{jt_closes}
-    }}
-}}
-"""
+        text = render(
+            "citydb/exporter.java.j2",
+            header=self.header,
+            pkg=PKG,
+            prefix=tbl.module.prefix,
+            imports=render_imports(imports),
+            name=tbl.exporter,
+            interface=tbl.module.exporter_interface,
+            helper_field=helper_field,
+            om_field=om_field,
+            fields=fields,
+            helper_init=helper_init,
+            om_init=om_init,
+            enum=tbl.enum,
+            table_decls=table_decls,
+            stmts=stmts,
+            inits=inits,
+            methods=methods,
+            lazy_methods=lazy_methods,
+            close_ps=close_ps,
+            close_parent=close_parent,
+            jt_closes=jt_closes,
+        )
         text = re.sub(r"\n{3,}", "\n\n", text)
         text = text.replace("    }\n\n    @Override", "    }\n\n    @Override")
         text = (

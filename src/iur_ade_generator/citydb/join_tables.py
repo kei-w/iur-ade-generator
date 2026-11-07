@@ -7,6 +7,7 @@ from collections.abc import Iterable
 
 from ..naming import cap, uncap
 from ..spec import Module
+from ..templates import render
 from .common import PKG
 from .fields import FieldWriter
 from .tables import JoinRef, Table
@@ -21,60 +22,19 @@ class JoinTableWriter(FieldWriter):
         enum = jt.table[3:].upper()
         owner_var = uncap(owner if isinstance(owner, str) else owner.concrete.model)
         target_id = "cityObjectId" if f.kind == "cityObjectRef" else uncap(f.nested.model) + "Id"
-        text = f"""{self.header}
-
-package {PKG}.importer.{module.prefix};
-
-import {PKG}.importer.ImportManager;
-import {PKG}.schema.ADETable;
-import {PKG}.schema.SchemaMapper;
-import org.citydb.core.ade.importer.CityGMLImportHelper;
-import org.citydb.core.operation.importer.CityGMLImportException;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-
-public class {name} implements {module.importer_interface} {{
-    private final CityGMLImportHelper helper;
-    private final SchemaMapper schemaMapper;
-    private final PreparedStatement ps;
-
-    private int batchCounter;
-
-    public {name}(Connection connection, CityGMLImportHelper helper, ImportManager manager) throws CityGMLImportException, SQLException {{
-        this.helper = helper;
-        this.schemaMapper = manager.getSchemaMapper();
-
-        ps = connection.prepareStatement("insert into " +
-                helper.getTableNameWithSchema(schemaMapper.getTableName(ADETable.{enum})) + " " +
-                "({jt.target_column}, {jt.owner_column}) " +
-                "values (?, ?)");
-    }}
-
-    public void doImport(long {target_id}, long {owner_var}Id) throws CityGMLImportException, SQLException {{
-        ps.setLong(1, {target_id});
-        ps.setLong(2, {owner_var}Id);
-
-        ps.addBatch();
-        if (++batchCounter == helper.getDatabaseAdapter().getMaxBatchSize())
-            helper.executeBatch(schemaMapper.getTableName(ADETable.{enum}));
-    }}
-
-    @Override
-    public void executeBatch() throws CityGMLImportException, SQLException {{
-        if (batchCounter > 0) {{
-            ps.executeBatch();
-            batchCounter = 0;
-        }}
-    }}
-
-    @Override
-    public void close() throws CityGMLImportException, SQLException {{
-        ps.close();
-    }}
-}}
-"""
+        text = render(
+            "citydb/join_importer.java.j2",
+            header=self.header,
+            pkg=PKG,
+            prefix=module.prefix,
+            name=name,
+            interface=module.importer_interface,
+            enum=enum,
+            target_column=jt.target_column,
+            owner_column=jt.owner_column,
+            target_id=target_id,
+            owner_var=owner_var,
+        )
         self.out(os.path.join(self.src, "importer", module.prefix, name + ".java"), text)
         return name
 

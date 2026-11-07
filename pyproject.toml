@@ -15,7 +15,9 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: GIS",
 ]
-dependencies = []
+dependencies = [
+    "jinja2>=3.1.6",
+]
 
 [project.urls]
 Repository = "https://github.com/kei-w/iur-ade-generator"
