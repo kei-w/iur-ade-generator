@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The urf schemas are the latest revisions published at `https://www.geospatial.jp/iur/schemas/urf/`: 3.1.1 replaces
+  3.1.0 (`urf:PublicTransitFacility/companyType` and `facilityType` become `gml:CodeType`) and the published 2.0
+  replaces the earlier file of the Hachioji 2020 dataset. All urf, urg and urt schemas of the repository are now
+  byte-identical to the published files. (The uro schema lives in the citygml4j fork; its 3.0 edition moved to
+  3.0.4 there.)
 - `impexp/plateau.xml`: the Importer/Exporter settings that keep the PLATEAU file structure (no envelope on the city
   objects, the city model envelope, the xAL addresses from `address.xal_source` with the columns as fallback; the
   address options live in `export/cityGMLOptions/address` in 5.5.0). `verify --db` takes it as `--impexp-config`, and

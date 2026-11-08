@@ -3,7 +3,7 @@
 	<xs:annotation>
 		<xs:documentation>XML Schema for City Planning Decision</xs:documentation>
 		<xs:documentation>This XML Schema extends Urban Planning Module of i-UR</xs:documentation>
-		<xs:documentation>Updated on 2022-07-19</xs:documentation>
+		<xs:documentation>Updated on 2022-09-30</xs:documentation>
 	</xs:annotation>
 	<xs:import namespace="http://www.opengis.net/gml" schemaLocation="http://schemas.opengis.net/gml/3.1.1/base/gml.xsd"/>
 	<xs:import namespace="http://www.opengis.net/citygml/2.0" schemaLocation="http://schemas.opengis.net/citygml/2.0/cityGMLBase.xsd"/>
@@ -534,7 +534,11 @@
 					<xs:element name="maximumFloorAreaRate" type="xs:double"/>
 					<xs:element name="minimumFloorAreaRate" type="xs:double" minOccurs="0"/>
 					<xs:element name="minimumBuildingArea" type="gml:MeasureType" minOccurs="0"/>
-					<xs:element name="maximumBuildingHeight" type="xs:string" minOccurs="0"/>
+					<xs:element name="maximumBuildingHeight" type="gml:StringOrRefType" minOccurs="0">
+						<xs:annotation>
+							<xs:documentation>2022-09-30</xs:documentation>
+						</xs:annotation>
+					</xs:element>
 					<xs:element name="otherRestrictions" type="gml:StringOrRefType" minOccurs="0"/>
 				</xs:sequence>
 			</xs:extension>
@@ -1445,8 +1449,16 @@
 	</xs:element>
 	<xs:complexType name="StructureDetailsType">
 		<xs:sequence>
-			<xs:element name="startLocation" type="xs:string" minOccurs="0"/>
-			<xs:element name="endLocation" type="xs:string" minOccurs="0"/>
+			<xs:element name="startLocation" type="xs:string">
+				<xs:annotation>
+					<xs:documentation>2022-09-30</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="endLocation" type="xs:string">
+				<xs:annotation>
+					<xs:documentation>2022-09-30</xs:documentation>
+				</xs:annotation>
+			</xs:element>
 			<xs:element name="viaLocations" type="xs:string" minOccurs="0"/>
 			<xs:element name="length" type="gml:LengthType" minOccurs="0"/>
 			<xs:element name="structureType" type="gml:CodeType" minOccurs="0">
@@ -1503,8 +1515,16 @@
 	</xs:element>
 	<xs:complexType name="ParkingPlaceAttributeType">
 		<xs:sequence>
-			<xs:element name="storeysAboveGround" type="xs:nonNegativeInteger" minOccurs="0"/>
-			<xs:element name="storeysBelowGround" type="xs:nonNegativeInteger" minOccurs="0"/>
+			<xs:element name="storeysAboveGround" type="xs:nonNegativeInteger">
+				<xs:annotation>
+					<xs:documentation>2022-09-30</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="storeysBelowGround" type="xs:nonNegativeInteger">
+				<xs:annotation>
+					<xs:documentation>2022-09-30</xs:documentation>
+				</xs:annotation>	
+			</xs:element>
 		</xs:sequence>
 	</xs:complexType>
 	<xs:complexType name="ParkingPlaceAttributePropertyType">
