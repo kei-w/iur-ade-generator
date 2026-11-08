@@ -96,13 +96,23 @@ def verify_files(config: Config, version: str, paths: Sequence[Path], out: Path)
     return bad
 
 
-def verify_db(config: Config, version: str, paths: Sequence[Path], out: Path, name: str | None = None) -> int:
-    """Database round trip of every file; returns the number of failed or different files."""
+def verify_db(
+    config: Config,
+    version: str,
+    paths: Sequence[Path],
+    out: Path,
+    name: str | None = None,
+    impexp_config: Path | None = None,
+    keep_envelope: bool = False,
+) -> int:
+    """Database round trip of every file; returns the number of failed or different files. ``impexp_config`` is
+    passed to the import and the export (``-c``), ``keep_envelope`` compares the gml:boundedBy of the objects."""
     edition = config.edition(version)
     checkout(config, edition)
     out.mkdir(parents=True, exist_ok=True)
     files = [with_ids(f, out) for f in gml_files(paths)]
     name = name or edition.database
+    config_args = ["-c", str(impexp_config.resolve())] if impexp_config is not None else []
     tools, db = config.tools, config.database
     database.recreate(config, name, extension_dir(config, edition), out)
     imported: list[Path] = []
@@ -114,6 +124,7 @@ def verify_db(config: Config, version: str, paths: Sequence[Path], out: Path, na
                 name,
                 edition.extension_folder,
                 "import",
+                *config_args,
                 "--creation-date=complement",
                 "--no-appearance",
                 str(f),
@@ -129,6 +140,7 @@ def verify_db(config: Config, version: str, paths: Sequence[Path], out: Path, na
         name,
         edition.extension_folder,
         "export",
+        *config_args,
         "--no-appearance",
         "-o",
         str(exported),
@@ -136,7 +148,8 @@ def verify_db(config: Config, version: str, paths: Sequence[Path], out: Path, na
     )
     bad = len(files) - len(imported)
     for f in imported:
-        _, summary = compare_files(f, exported, ["--db", "--subset"], out / f"{f.stem}.cmp.txt")
+        options = ["--db", "--subset", *(["--keep-envelope"] if keep_envelope else [])]
+        _, summary = compare_files(f, exported, options, out / f"{f.stem}.cmp.txt")
         if CLEAN_DB.search(summary):
             log.info("ok   %s: %s", f.stem, summary)
         elif NO_ADE_DIFFERENCE.search(summary):

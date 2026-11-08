@@ -213,3 +213,46 @@ def test_db_ignores_a_missing_hash_in_xlinks(tmp_path: Path) -> None:
     b = write(tmp_path, "b.gml", building("b1", STANDARD + '      <uro:buildingIDAttribute xlink:href="#x1"/>\n'))
     assert compare.main([a, b]) == 1
     assert compare.main([a, b, "--db"]) == 0
+
+
+def test_keep_envelope_compares_the_object_envelopes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    without = building("b1", CREATION_DATE + HEIGHT)
+    a = write(tmp_path, "a.gml", without)
+    b = write(tmp_path, "b.gml", building("b1", CREATION_DATE + ENVELOPE + HEIGHT))
+    assert compare.main([a, b, "--db"]) == 0
+    assert compare.main([a, b, "--db", "--keep-envelope"]) == 1
+    assert "standard content differs for b1" in capsys.readouterr().out
+    c = write(tmp_path, "c.gml", without)
+    assert compare.main([a, c, "--db", "--keep-envelope"]) == 0
+
+
+def test_keep_envelope_requires_the_city_model_envelope(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    model_envelope = ENVELOPE.replace("      ", "  ", 1)
+    a = tmp_path / "a.gml"
+    a.write_text(HEADER + model_envelope + ORIGINAL + FOOTER, encoding="utf-8")
+    b = write(tmp_path, "b.gml", ORIGINAL)
+    assert compare.main([str(a), b, "--db", "--keep-envelope"]) == 1
+    out = capsys.readouterr().out
+    assert "CityModel envelope: original 0 0 0 / 1 1 1, roundtrip none" in out
+    assert "CityModel envelope missing in roundtrip" in out
+    c = tmp_path / "c.gml"
+    c.write_text(HEADER + model_envelope.replace("1 1 1", "2 2 2") + ORIGINAL + FOOTER, encoding="utf-8")
+    assert compare.main([str(a), str(c), "--db", "--keep-envelope"]) == 0, "the extent itself is only reported"
+
+
+def surface(kind: str, z: str) -> str:
+    return (
+        f"      <bldg:boundedBy><bldg:{kind}><bldg:lod2MultiSurface><gml:MultiSurface><gml:surfaceMember><gml:Polygon>"
+        f"<gml:exterior><gml:LinearRing><gml:posList>0 0 {z} 1 0 {z} 1 1 {z} 0 0 {z}</gml:posList></gml:LinearRing>"
+        f"</gml:exterior></gml:Polygon></gml:surfaceMember></gml:MultiSurface></bldg:lod2MultiSurface></bldg:{kind}>"
+        "</bldg:boundedBy>\n"
+    )
+
+
+def test_db_compares_the_thematic_surfaces_in_any_order(tmp_path: Path) -> None:
+    roof, ground = surface("RoofSurface", "9"), surface("GroundSurface", "0")
+    a = write(tmp_path, "a.gml", building("b1", STANDARD + roof + ground))
+    b = write(tmp_path, "b.gml", building("b1", STANDARD + ground + roof))
+    assert compare.main([a, b, "--db"]) == 0
+    c = write(tmp_path, "c.gml", building("b1", STANDARD + ground + surface("RoofSurface", "8")))
+    assert compare.main([a, c, "--db"]) == 1, "bldg:boundedBy is not the ignored gml:boundedBy"

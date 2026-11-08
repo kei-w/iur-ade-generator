@@ -115,6 +115,15 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--db", action="store_true", help="database round trip (needs the extension folder)")
     verify.add_argument("--database", metavar="NAME", help="database to recreate (default: the edition's)")
     verify.add_argument("--out", type=Path, metavar="DIR", help="output folder (default: out/verify<version>)")
+    verify.add_argument(
+        "--impexp-config",
+        type=Path,
+        metavar="FILE",
+        help="Importer/Exporter configuration for the import and the export (--db), e.g. impexp/plateau.xml",
+    )
+    verify.add_argument(
+        "--keep-envelope", action="store_true", help="compare the gml:boundedBy of the city objects too (--db)"
+    )
 
     recreate = commands.add_parser(
         "recreate-db",
@@ -144,9 +153,12 @@ def run_command(args: argparse.Namespace) -> int:
     if args.command == "verify":
         from . import verify
 
-        out = args.out or cfg.workspace.out / f"verify{args.version.replace('.', '')}"
+        out = (args.out or cfg.workspace.out / f"verify{args.version.replace('.', '')}").resolve()
         if args.db:
-            return 1 if verify.verify_db(cfg, args.version, args.paths, out, args.database) else 0
+            bad = verify.verify_db(
+                cfg, args.version, args.paths, out, args.database, args.impexp_config, args.keep_envelope
+            )
+            return 1 if bad else 0
         return 1 if verify.verify_files(cfg, args.version, args.paths, out) else 0
     if args.command == "recreate-db":
         from . import database, regen

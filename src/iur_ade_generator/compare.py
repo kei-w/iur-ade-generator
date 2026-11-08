@@ -1,6 +1,6 @@
 """Semantic comparison of CityGML city objects between two files (original vs. round trip).
 
-Usage: iur-ade compare ORIGINAL.gml ROUNDTRIP.gml [--ignore-creation-date] [--db] [--subset]
+Usage: iur-ade compare ORIGINAL.gml ROUNDTRIP.gml [--ignore-creation-date] [--db] [--subset] [--keep-envelope]
 
 Two comparisons are made for every top-level city object (matched by gml:id):
 
@@ -11,12 +11,17 @@ Two comparisons are made for every top-level city object (matched by gml:id):
    generic application properties), it is only reported as a count.
 2. Standard CityGML content: compared after normalisation. With --db the known
    Importer/Exporter round-trip differences are neutralised: generated gml:id
-   values are stripped, per-feature gml:boundedBy is ignored, srsName /
+   values are stripped, per-feature gml:boundedBy is ignored (bldg:boundedBy and the like,
+   the thematic surfaces, are compared as a multiset), srsName /
    srsDimension attributes are ignored, the members of a surface aggregate
    (gml:CompositeSurface / gml:MultiSurface) and the generic attributes (gen:*)
    are compared as multisets because the exporter does not preserve their order.
    Coordinates are still compared numerically.
    With --subset, city objects that exist only in the roundtrip file are ignored.
+   With --keep-envelope (with --db), the gml:boundedBy of the city objects is compared
+   too, and a gml:boundedBy of the core:CityModel of the original must be present in
+   the roundtrip (its extent is reported, not compared: an export of several files
+   covers all of them).
 
 Numbers in text (including posList) are compared as decimals so "4.0" == "4".
 Whitespace-only text is ignored. Exit code 1 on any difference.
@@ -32,6 +37,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
 GML = "http://www.opengis.net/gml"
+ENVELOPE = f"{{{GML}}}boundedBy"
 XLINK = "http://www.w3.org/1999/xlink"
 # GML array properties (curveMembers) the Importer/Exporter writes as repeated single properties (curveMember)
 ARRAY_PROPERTIES = {"curveMembers", "surfaceMembers", "pointMembers", "solidMembers"}
@@ -63,6 +69,7 @@ class Options:
     """Elements whose children are compared as multisets."""
     unordered_generics: bool = False
     subset: bool = False
+    keep_envelope: bool = False
 
     @classmethod
     def parse(cls, argv: Sequence[str]) -> Options:
@@ -70,7 +77,8 @@ class Options:
         if "--ignore-creation-date" in argv:
             o.ignore_elements.add("creationDate")
         if "--db" in argv:
-            o.ignore_elements.update({"creationDate", "boundedBy"})
+            # gml:boundedBy only: bldg:boundedBy etc. hold the thematic surfaces
+            o.ignore_elements.update({"creationDate", ENVELOPE})
             o.ignore_attributes.update({"srsName", "srsDimension"})
             o.strip_ids = True
             # nested features (rooms, installations, ...) are exported in database order
@@ -78,6 +86,9 @@ class Options:
             o.unordered_generics = True
         if "--subset" in argv:
             o.subset = True
+        if "--keep-envelope" in argv:
+            o.keep_envelope = True
+            o.ignore_elements.discard(ENVELOPE)
         return o
 
 
@@ -112,7 +123,7 @@ def norm_text(t: str | None) -> str:
 
 def child_canons(el: ET.Element, strict: bool, o: Options) -> Iterator[Canon]:
     for c in el:
-        if local(c.tag) in o.ignore_elements and not (strict and ns_of(c.tag) not in (CORE, GML)):
+        if ignored(c, o) and not (strict and ns_of(c.tag) not in (CORE, GML)):
             continue
         if o.strip_ids and ns_of(c.tag) == GML and local(c.tag) in ARRAY_PROPERTIES:
             # gml:curveMembers etc. are exported as one gml:curveMember per geometry
@@ -145,6 +156,11 @@ def canon(el: ET.Element, strict: bool, o: Options) -> Canon:
     children = (canon(resolved, False, o),) if resolved is not None else tuple(child_canons(el, strict, o))
     if not strict and local(el.tag) in o.unordered:
         children = tuple(sorted(children))
+    elif not strict and o.unordered_generics and any(is_surface_property(c) for c in el):
+        surfaces = tuple(
+            sorted(c for c in children if c[0].endswith("}boundedBy") and not c[0].startswith(f"{{{GML}}}"))
+        )
+        children = tuple(c for c in children if c not in surfaces) + surfaces
     if not strict and o.strip_ids and len(children) > 1 and all(c[0] == f"{{{GML}}}pos" for c in children):
         # the Importer/Exporter writes the positions of a ring as one posList
         children = ((f"{{{GML}}}posList", (), " ".join(c[2] for c in children), ()),)
@@ -193,19 +209,38 @@ def city_objects(root: ET.Element) -> dict[str, ET.Element]:
     return out
 
 
+def envelope_text(bounded_by: ET.Element | None) -> str:
+    if bounded_by is None:
+        return "none"
+    corners = [" ".join(norm_text(c.text).split()) for c in bounded_by.iter() if local(c.tag).endswith("Corner")]
+    return " / ".join(corners) or "empty"
+
+
 def geometries(root: ET.Element) -> dict[str, ET.Element]:
     """The GML elements with a gml:id (the targets of geometry xlinks)."""
     return {el.get(f"{{{GML}}}id", ""): el for el in root.iter() if ns_of(el.tag) == GML and el.get(f"{{{GML}}}id")}
 
 
+def ignored(el: ET.Element, o: Options) -> bool:
+    """Whether an element is ignored: by local name (creationDate) or by qualified name (gml:boundedBy)."""
+    return local(el.tag) in o.ignore_elements or el.tag in o.ignore_elements
+
+
+def is_surface_property(el: ET.Element) -> bool:
+    """A thematic surface property (bldg:boundedBy, brid:boundedBy, tun:boundedBy): the Importer/Exporter writes the
+    surfaces of a feature in database order."""
+    return local(el.tag) == "boundedBy" and ns_of(el.tag) != GML
+
+
 def split(obj: ET.Element, o: Options) -> tuple[tuple[Canon, ...], Canon]:
     """(ADE children canonical tuple, standard children canonical tuple)."""
     ade = tuple(canon(c, True, o) for c in obj if is_ade(c.tag))
-    std_children = [c for c in obj if not is_ade(c.tag) and local(c.tag) not in o.ignore_elements]
+    std_children = [c for c in obj if not is_ade(c.tag) and not ignored(c, o)]
     if o.unordered_generics:
         generic = sorted(canon(c, False, o) for c in std_children if ns_of(c.tag) == GENERICS)
-        other = [canon(c, False, o) for c in std_children if ns_of(c.tag) != GENERICS]
-        std_canon = tuple(other) + tuple(generic)
+        surfaces = sorted(canon(c, False, o) for c in std_children if is_surface_property(c))
+        other = [canon(c, False, o) for c in std_children if ns_of(c.tag) != GENERICS and not is_surface_property(c)]
+        std_canon = tuple(other) + tuple(surfaces) + tuple(generic)
     else:
         std_canon = tuple(canon(c, False, o) for c in std_children)
     std: Canon = (
@@ -241,6 +276,13 @@ def main(argv: Sequence[str]) -> int:
     if extra and not o.subset:
         print(f"EXTRA city objects in roundtrip: {sorted(extra)}")
         ade_errors += 1
+
+    if o.keep_envelope:
+        ea, eb = ta.find(f"{{{GML}}}boundedBy"), tb.find(f"{{{GML}}}boundedBy")
+        print(f"CityModel envelope: original {envelope_text(ea)}, roundtrip {envelope_text(eb)}")
+        if ea is not None and eb is None:
+            print("CityModel envelope missing in roundtrip")
+            std_errors += 1
 
     ade_total = 0
     for gid in sorted(set(oa) & set(ob)):

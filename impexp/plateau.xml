@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Importer/Exporter 5.5.0 settings that keep the structure of the PLATEAU files
+  (the impexp-config option of iur-ade verify, or impexp -c).
+  The elements not listed here keep the defaults of the Importer/Exporter.
+  * import: the xAL address of every address is stored as it is (address.xal_source) besides the parsed columns.
+  * export: addresses are written from xal_source (rows without it fall back to the parsed columns); the city objects
+    get no gml:boundedBy, the core:CityModel gets one (the extent of the exported objects).
+  The 5.5.0 exporter reads the address options from export/cityGMLOptions/address; an address element directly
+  under export (as older GUI project files have it) is ignored.
+-->
+<project xmlns="http://www.3dcitydb.org/importer-exporter/config">
+    <import>
+        <cityGMLOptions>
+            <importXalAddress>true</importXalAddress>
+        </cityGMLOptions>
+    </import>
+    <export>
+        <general>
+            <envelope>
+                <features>none</features>
+                <cityModel useTileExtent="false">true</cityModel>
+            </envelope>
+        </general>
+        <cityGMLOptions>
+            <address>
+                <exportMode>xal</exportMode>
+                <useFallback>true</useFallback>
+            </address>
+        </cityGMLOptions>
+    </export>
+</project>

@@ -54,7 +54,14 @@ fresh verification database, and compare each file with the result:
 ```bash
 uv run iur-ade verify 3.1 ../_data/survey/maebashi-shi
 uv run iur-ade verify 3.1 --db ../_data/survey/maebashi-shi ../_data/urf_survey/some_file.gml
+uv run iur-ade verify 3.2 --db --keep-envelope --impexp-config impexp/plateau.xml <file.gml>
 ```
+
+`--impexp-config` passes an Importer/Exporter configuration to the import and the export. `impexp/plateau.xml` keeps
+the structure of the PLATEAU files: no `gml:boundedBy` on the city objects (only on the `core:CityModel`) and the xAL
+addresses as written (`address.xal_source`, with the parsed columns as fallback); `--keep-envelope` makes the
+comparison check the envelopes too. Files whose city objects have no `gml:id` (the i-UR sample data) are compared
+through a copy that gives them one (`<name>.in.xml` in the output folder).
 
 `recreate-db <version>` drops and recreates the verification database of an edition and registers its extension
 folder (what `regen` and `verify --db` do before importing).
@@ -88,6 +95,7 @@ distributions.
 | `schemas/iur/urg/<version>/`, `schemas/iur/urt/<version>/` | the statistical grid and public transit schemas 2.0-3.2 from `https://www.geospatial.jp/iur/schemas/`; `regen` copies them into the citygml4j fork like the urf schema |
 | `java/roundtrip/` | Gradle project (composite build of `../../../iur-ade-citygml4j`): `gradlew run --args="<in.gml> <out.gml>"` reads a CityGML file with the ADE module and writes it back; `gradlew validate --args="<file.gml> <xsd>..."` validates against local XSDs |
 | `java/ade-transform/` | Gradle project on the Importer/Exporter 5.5.0 + ADE Manager 2.3.0 class path (`-PimpexpHome=<folder>` or `IMPEXP_HOME`): `gradlew run` (headless ADE Manager transformation), `gradlew register` (register an extension in a 3DCityDB, `-DdeleteScript=` dumps the delete functions), `gradlew commitOrder` / `gradlew tableWeights` (the batch commit order and the table weights the Importer/Exporter derives from a mapping) |
+| `impexp/plateau.xml` | Importer/Exporter 5.5.0 settings (`impexp -c`) that keep the PLATEAU file structure: envelope on the city model only, xAL addresses as written |
 | `fixtures/` | `uro<ver>_building_all.gml`: one building using every building attribute field of the edition (hand-written); the generated `iur<ver>_all.gml` are written here by `regen` and not versioned |
 | `tests/` | unit tests (`uv run pytest`): the naming helpers, the configuration, the CLI, the comparison, the CHANGES sections, and the specification model and the generators on a small uro/urf module pair (`tests/data/mini`: XSDs, JAXB stubs, an ADE Manager style mapping) compared with golden files (`tests/golden/mini`, rewritten by `uv run pytest --update-golden`); tests marked `integration` regenerate the four editions and need the forks (`uv run pytest -m integration`) |
 | `out/` | outputs of the verification runs (not versioned) |

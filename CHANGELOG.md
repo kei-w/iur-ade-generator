@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `impexp/plateau.xml`: the Importer/Exporter settings that keep the PLATEAU file structure (no envelope on the city
+  objects, the city model envelope, the xAL addresses from `address.xal_source` with the columns as fallback; the
+  address options live in `export/cityGMLOptions/address` in 5.5.0). `verify --db` takes it as `--impexp-config`, and
+  `--keep-envelope` (also an option of `compare`) compares the object envelopes and requires the city model envelope.
+- `compare --db` ignored every element named `boundedBy`, so the thematic surfaces (`bldg:boundedBy`, ...) were not
+  compared; it now ignores `gml:boundedBy` only and compares the thematic surfaces as a multiset (the
+  Importer/Exporter writes them in database order). The output folder of `verify` is resolved (a relative `--out`
+  broke the delete script dump of the registration).
 - The Statistical Grid (`urg`) and Public Transit (`urt`) modules are generated like `urf`: `regen` copies the three
   module schemas of the edition into the citygml4j fork and runs `gen-mapping` per module (`config.MODULES`), and
   `changes-urgt` writes the CHANGES sections. Elements of feature types that clash with inherited GML properties are
